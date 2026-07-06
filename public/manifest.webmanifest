@@ -1,7 +1,7 @@
 {
   "name": "Videokisen",
   "short_name": "Videokisen",
-  "description": "To watchlister inn, én film ut.",
+  "description": "One spin, one film.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#B9B6AC",

@@ -22,12 +22,12 @@ const MONO = "'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace";
 const GROTESK = "'Helvetica Neue','Inter',Helvetica,Arial,sans-serif";
 
 const MODES = [
-  { id: "date", label: "Date night", sub: "kun overlapp", dot: GREEN },
-  { id: "all", label: "Alt sammen", sub: "begge listene", dot: INK },
-  { id: "duell", label: "Duell", sub: "én fra hver", dot: RED },
+  { id: "all", label: "Roulette", sub: "the whole pool", dot: INK },
+  { id: "date", label: "Date night", sub: "overlap only", dot: GREEN },
+  { id: "duell", label: "Duel", sub: "one from each", dot: RED },
 ];
 
-const DEFAULT_PERSON = { a: "Deg", b: "Kjæresten" };
+const DEFAULT_PERSON = { a: "You", b: "Partner" };
 const EMPTY_SLOT = { films: [], filename: "", username: "", total: 0 };
 
 const saved = loadState();
@@ -57,7 +57,7 @@ function Dot({ c }) {
 
 /* ── liste-slot: brukernavn primært, CSV som fallback ─────────── */
 
-function UploadSlot({ side, slot, accent, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
+function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
   const fileRef = useRef(null);
   const [drag, setDrag] = useState(false);
   const [uname, setUname] = useState(slot.username || "");
@@ -95,7 +95,7 @@ function UploadSlot({ side, slot, accent, fetching, error, onFile, onFetch, onPe
           <input
             value={slot.person}
             onChange={(e) => onPersonChange(e.target.value)}
-            aria-label="Navn"
+            aria-label="Name"
             style={{
               fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK,
               background: "transparent", border: "none", borderBottom: "1px dashed rgba(28,27,25,0.25)",
@@ -103,20 +103,20 @@ function UploadSlot({ side, slot, accent, fetching, error, onFile, onFetch, onPe
             }}
           />
           <div style={{ fontFamily: MONO, fontSize: 12, color: DIM, marginTop: 4 }}>
-            {slot.films.length} filmer · {slot.username ? `@${slot.username}` : slot.filename}
+            {slot.films.length} films · {slot.username ? `@${slot.username}` : slot.filename}
           </div>
           {slot.total > slot.films.length && (
             <div style={{ fontFamily: MONO, fontSize: 11, color: RED, marginTop: 2 }}>
-              hentet {slot.films.length} av {slot.total}
+              fetched {slot.films.length} of {slot.total}
             </div>
           )}
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
             {slot.username && (
               <button className="press" onClick={() => onFetch(slot.username)} disabled={fetching} style={{ ...ghostBtn, opacity: fetching ? 0.5 : 1 }}>
-                {fetching ? "henter…" : "oppdater"}
+                {fetching ? "fetching…" : "refresh"}
               </button>
             )}
-            <button className="press" onClick={onClear} style={ghostBtn}>bytt</button>
+            <button className="press" onClick={onClear} style={ghostBtn}>change</button>
           </div>
         </div>
       ) : (
@@ -128,11 +128,11 @@ function UploadSlot({ side, slot, accent, fetching, error, onFile, onFetch, onPe
             <input
               value={uname}
               onChange={(e) => setUname(e.target.value)}
-              placeholder="brukernavn"
+              placeholder="username"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              aria-label="Letterboxd-brukernavn"
+              aria-label="Letterboxd username"
               style={{
                 flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
                 background: "rgba(255,255,255,0.35)", border: "1px solid rgba(28,27,25,0.25)",
@@ -148,17 +148,19 @@ function UploadSlot({ side, slot, accent, fetching, error, onFile, onFetch, onPe
                 padding: "6px 11px", opacity: fetching || !uname.trim() ? 0.45 : 1,
               }}
             >
-              {fetching ? "…" : "hent"}
+              {fetching ? "…" : "fetch"}
             </button>
           </form>
           <div style={{ fontFamily: MONO, fontSize: 10.5, color: DIM, marginTop: 6 }}>
-            Letterboxd-brukernavn (offentlig watchlist)
+            {optional
+              ? "optional — unlocks Date night & Duel"
+              : "Letterboxd username (public watchlist)"}
           </div>
           <button
             onClick={() => fileRef.current && fileRef.current.click()}
             style={{ ...linkBtn, color: DIM, fontSize: 11, marginTop: 8 }}
           >
-            eller last opp watchlist.csv
+            or upload watchlist.csv
           </button>
         </div>
       )}
@@ -230,7 +232,7 @@ function DuelWindow({ label, accent, film, rolling, isWinner, isLoser, flashing 
           fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
           padding: "3px 0 2px", background: "rgba(28,27,25,0.85)", width: 92, textAlign: "center",
         }}>
-          VINNER
+          WINNER
         </div>
       )}
     </div>
@@ -242,7 +244,7 @@ function DuelWindow({ label, accent, film, rolling, isWinner, isLoser, flashing 
 export default function Videokisen() {
   const [a, setA] = useState(() => ({ ...EMPTY_SLOT, person: DEFAULT_PERSON.a, ...(saved?.a || {}) }));
   const [b, setB] = useState(() => ({ ...EMPTY_SLOT, person: DEFAULT_PERSON.b, ...(saved?.b || {}) }));
-  const [mode, setMode] = useState(saved?.mode || "date");
+  const [mode, setMode] = useState(saved?.mode || "all");
   const [noRepeat, setNoRepeat] = useState(saved?.noRepeat ?? true);
   const [soundOn, setSoundOn] = useState(saved?.soundOn ?? true);
   const [excluded, setExcluded] = useState(() => new Set(saved?.excluded || []));
@@ -371,7 +373,7 @@ export default function Videokisen() {
   const whose = useCallback((f) => {
     const inA = aKeys.has(keyOf(f));
     const inB = bKeys.has(keyOf(f));
-    if (inA && inB) return { label: "begge lister", color: GREEN };
+    if (inA && inB) return { label: "both lists", color: GREEN };
     if (inA) return { label: a.person, color: ORANGE };
     return { label: b.person, color: BLUE };
   }, [aKeys, bKeys, a.person, b.person]);
@@ -507,12 +509,12 @@ export default function Videokisen() {
   /* ── tekster for tomme tilstander ── */
 
   const emptyText = !oneLoaded
-    ? "HENT TO LISTER FOR Å STARTE"
+    ? "FETCH A LIST TO START"
     : !bothLoaded && mode !== "all"
-      ? "MANGLER ÉN LISTE"
+      ? "ADD A SECOND LIST FOR THIS MODE"
       : mode === "date" && overlap.length === 0
-        ? "INGEN FELLES FILMER — PRØV ALT SAMMEN"
-        : "ALT I POTTEN ER SETT — NULLSTILL?";
+        ? "NO SHARED FILMS — TRY ROULETTE"
+        : "EVERYTHING'S BEEN SEEN — RESET?";
 
   const shown = displays[0] || picks[0];
   const landed = picks[0] && !spinning;
@@ -540,7 +542,7 @@ export default function Videokisen() {
           <div>
             <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em" }}>Videokisen</div>
             <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, letterSpacing: "0.1em", marginTop: 2 }}>
-              TO LISTER · ÉN FILM
+              ONE SPIN · ONE FILM
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -554,7 +556,7 @@ export default function Videokisen() {
               aria-pressed={soundOn}
               style={{ ...ghostBtn, fontSize: 10, padding: "3px 7px", color: soundOn ? INK : DIM }}
             >
-              lyd {soundOn ? "på" : "av"}
+              sound {soundOn ? "on" : "off"}
             </button>
           </div>
         </div>
@@ -562,13 +564,13 @@ export default function Videokisen() {
         {/* Innmating */}
         <div className="slots" style={{ padding: "14px 18px" }}>
           <UploadSlot
-            side="Liste A" slot={a} accent={ORANGE}
+            side="List A" slot={a} accent={ORANGE}
             fetching={fetching.a} error={errors.a}
             onFile={loadInto("a")} onFetch={fetchInto("a")}
             onPersonChange={setPerson("a")} onClear={clearSlot("a")}
           />
           <UploadSlot
-            side="Liste B" slot={b} accent={BLUE}
+            side="List B" slot={b} accent={BLUE} optional
             fetching={fetching.b} error={errors.b}
             onFile={loadInto("b")} onFetch={fetchInto("b")}
             onPersonChange={setPerson("b")} onClear={clearSlot("b")}
@@ -581,12 +583,12 @@ export default function Videokisen() {
             display: "flex", gap: 18, padding: "0 18px 12px",
             fontFamily: MONO, fontSize: 11.5, color: DIM, flexWrap: "wrap",
           }}>
-            <span><b style={{ color: INK }}>{overlap.length}</b> overlapp</span>
-            <span><b style={{ color: INK }}>{union.length}</b> til sammen</span>
+            {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
+            <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : "films"}</span>
             {noRepeat && excluded.size > 0 && (
               <span>
-                <b style={{ color: INK }}>{excluded.size}</b> sett ·{" "}
-                <button onClick={resetExcluded} style={linkBtn}>nullstill</button>
+                <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
+                <button onClick={resetExcluded} style={linkBtn}>reset</button>
               </span>
             )}
           </div>
@@ -625,7 +627,7 @@ export default function Videokisen() {
                   textAlign: "center", fontFamily: MONO, fontSize: 11.5, color: RED,
                   letterSpacing: "0.14em", marginTop: 10, fontWeight: 700,
                 }}>
-                  SKJEBNE · SAMME FILM PÅ BEGGE LISTENE
+                  FATE · SAME FILM ON BOTH LISTS
                 </div>
               )}
             </div>
@@ -663,10 +665,12 @@ export default function Videokisen() {
                     const w = whose(picks[0]);
                     return (
                       <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#b9b7ae" }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: w.color }} />
-                          {w.label}
-                        </span>
+                        {bothLoaded && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#b9b7ae" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: w.color }} />
+                            {w.label}
+                          </span>
+                        )}
                         {picks[0].uri && (
                           <a href={picks[0].uri} target="_blank" rel="noreferrer"
                             style={{ fontFamily: MONO, fontSize: 11, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
@@ -679,7 +683,7 @@ export default function Videokisen() {
                 </div>
               ) : (
                 <span style={{ color: "#6f6d67", fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
-                  KLAR · TRYKK SPINN
+                  READY · PRESS SPIN
                 </span>
               )}
             </div>
@@ -688,7 +692,7 @@ export default function Videokisen() {
 
         {/* skjermleser: annonser resultatet */}
         <div aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)" }}>
-          {chosenFilm ? `Valgt film: ${chosenFilm.name} ${chosenFilm.year}` : ""}
+          {chosenFilm ? `Chosen film: ${chosenFilm.name} ${chosenFilm.year}` : ""}
         </div>
 
         {/* Modus */}
@@ -728,7 +732,7 @@ export default function Videokisen() {
                 fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.16em",
                 boxShadow: "0 2px 0 rgba(0,0,0,0.22)",
               }}>
-              {deciding ? "AVGJØR…" : "LA MASKINEN AVGJØRE"}
+              {deciding ? "DECIDING…" : "LET THE MACHINE DECIDE"}
             </button>
           )}
 
@@ -745,18 +749,18 @@ export default function Videokisen() {
                 fontFamily: GROTESK, fontSize: 17, fontWeight: 700, letterSpacing: "0.02em",
                 boxShadow: !canSpin ? "none" : "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.22) inset",
               }}>
-              {spinning ? "spinner…" : picks[0] ? "Spinn på nytt" : "Spinn"}
+              {spinning ? "spinning…" : picks[0] ? "Spin again" : "Spin"}
             </button>
 
             {chosenFilm && !spinning && !deciding && (
               <button className="press" onClick={markWatched} style={{ ...ghostBtn, padding: "13px 14px", fontSize: 11 }}>
-                sett den ✓
+                seen it ✓
               </button>
             )}
 
             <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: MONO, fontSize: 11, color: DIM }}>
               <input type="checkbox" checked={noRepeat} onChange={(e) => setNoRepeat(e.target.checked)} style={{ accentColor: RED }} />
-              ikke gjenta
+              no repeats
             </label>
           </div>
         </div>

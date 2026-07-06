@@ -49,10 +49,10 @@ export async function fetchWatchlist(username) {
 }
 
 export const FETCH_ERRORS = {
-  bad_user: "Det ser ikke ut som et Letterboxd-brukernavn",
-  not_found: "Fant ingen bruker med det navnet",
-  empty: "Watchlisten er tom eller privat",
-  blocked: "Letterboxd svarte ikke — last opp CSV i stedet",
-  unknown: "Noe gikk galt — prøv igjen, eller last opp CSV",
-  csv_empty: "Fant ingen filmer i fila. Er det watchlist.csv fra Letterboxd-eksporten?",
+  bad_user: "That doesn't look like a Letterboxd username",
+  not_found: "No user with that name",
+  empty: "That watchlist is empty or private",
+  blocked: "Letterboxd didn't answer — upload the CSV instead",
+  unknown: "Something went wrong — try again, or upload the CSV",
+  csv_empty: "No films in that file. Is it watchlist.csv from the Letterboxd export?",
 };

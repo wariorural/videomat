@@ -48,6 +48,12 @@ export async function fetchWatchlist(username) {
   return data; // { user, total, fetched, films }
 }
 
+export async function fetchFilmDetails(uri) {
+  const res = await fetch(`/api/film?uri=${encodeURIComponent(uri)}`);
+  if (!res.ok) throw new Error("film_failed");
+  return res.json();
+}
+
 export const FETCH_ERRORS = {
   bad_user: "That doesn't look like a Letterboxd username",
   not_found: "No user with that name",

@@ -68,7 +68,7 @@ input:focus-visible {
   transform: translateY(1px) scale(0.98);
 }
 
-/* liste-slots og duell-vinduer: side om side → stablet på smal skjerm */
+/* liste-slots: alltid to kolonner; duell-vinduer stables på smal skjerm */
 .slots,
 .duel {
   display: flex;
@@ -78,10 +78,36 @@ input:focus-visible {
   align-items: stretch;
 }
 @media (max-width: 519px) {
-  .slots,
   .duel {
     flex-direction: column;
   }
+}
+
+/* synopsis-klamping */
+.clamp2,
+.clamp3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp2 {
+  -webkit-line-clamp: 2;
+}
+.clamp3 {
+  -webkit-line-clamp: 3;
+}
+
+/* plakat toner inn når den er lastet */
+@keyframes poster-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.poster-fade {
+  animation: poster-in 280ms var(--ease-out) both;
 }
 
 /* strøm-LED i topplinja */

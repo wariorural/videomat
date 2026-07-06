@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { keyOf, parseCsv, fetchWatchlist, FETCH_ERRORS } from "./lib/letterboxd.js";
+import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, FETCH_ERRORS } from "./lib/letterboxd.js";
 import { loadState, saveState } from "./lib/storage.js";
 import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
 
@@ -110,7 +110,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
               fetched {slot.films.length} of {slot.total}
             </div>
           )}
-          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {slot.username && (
               <button className="press" onClick={() => onFetch(slot.username)} disabled={fetching} style={{ ...ghostBtn, opacity: fetching ? 0.5 : 1 }}>
                 {fetching ? "fetching…" : "refresh"}
@@ -123,7 +123,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
         <div>
           <form
             onSubmit={(e) => { e.preventDefault(); if (uname.trim()) onFetch(uname.trim()); }}
-            style={{ display: "flex", gap: 6 }}
+            style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
           >
             <input
               value={uname}
@@ -134,7 +134,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
               spellCheck={false}
               aria-label="Letterboxd username"
               style={{
-                flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
+                flex: "1 1 110px", minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
                 background: "rgba(255,255,255,0.35)", border: "1px solid rgba(28,27,25,0.25)",
                 borderRadius: 3, padding: "6px 8px",
               }}
@@ -182,9 +182,57 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
   );
 }
 
+/* ── filmkort: plakat + fakta når hjulet har landet ───────────── */
+
+function FilmCard({ film, info, big }) {
+  return (
+    <div style={{ display: "flex", gap: big ? 16 : 12, alignItems: "center", textAlign: "left", width: "100%", minWidth: 0 }}>
+      {info.poster && (
+        <img
+          src={info.poster}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="poster-fade"
+          style={{
+            width: big ? 92 : 62, aspectRatio: "2 / 3", objectFit: "cover",
+            borderRadius: 4, flexShrink: 0, background: "#2a2926",
+            boxShadow: "0 4px 14px -6px rgba(0,0,0,0.8)",
+          }}
+        />
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
+          fontSize: big ? "clamp(19px, 5.5vw, 27px)" : "clamp(15px, 4vw, 19px)",
+          lineHeight: 1.12, letterSpacing: "-0.015em", overflowWrap: "break-word",
+        }}>
+          {film.name}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: big ? 12 : 11, color: "#9a988f", marginTop: 5 }}>
+          {[film.year, info.runtime ? `${info.runtime} min` : null, info.rating ? `★ ${info.rating}` : null]
+            .filter(Boolean).join(" · ")}
+        </div>
+        {info.director && (
+          <div style={{ fontFamily: MONO, fontSize: big ? 11 : 10, color: "#7a786f", marginTop: 2 }}>
+            dir. {info.director}
+          </div>
+        )}
+        {info.synopsis && (
+          <div
+            className={big ? "clamp3" : "clamp2"}
+            style={{ fontFamily: GROTESK, fontSize: big ? 12.5 : 11.5, lineHeight: 1.45, color: "#b9b7ae", marginTop: big ? 8 : 6 }}
+          >
+            {info.synopsis}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── duell-vindu ──────────────────────────────────────────────── */
 
-function DuelWindow({ label, accent, film, rolling, isWinner, isLoser, flashing }) {
+function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, flashing }) {
   return (
     <div
       className={`duel-win${flashing ? " flash" : ""}${isLoser ? " loser" : ""}`}
@@ -210,18 +258,22 @@ function DuelWindow({ label, accent, film, rolling, isWinner, isLoser, flashing 
         </span>
       </div>
       {film ? (
-        <div className={`title-display${rolling ? " rolling" : ""}`}>
-          <div style={{
-            fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-            fontSize: "clamp(17px, 4.6vw, 23px)", lineHeight: 1.15, letterSpacing: "-0.01em",
-            overflowWrap: "break-word",
-          }}>
-            {film.name}
+        !rolling && info ? (
+          <FilmCard film={film} info={info} />
+        ) : (
+          <div className={`title-display${rolling ? " rolling" : ""}`}>
+            <div style={{
+              fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
+              fontSize: "clamp(17px, 4.6vw, 23px)", lineHeight: 1.15, letterSpacing: "-0.01em",
+              overflowWrap: "break-word",
+            }}>
+              {film.name}
+            </div>
+            {film.year && (
+              <div style={{ fontFamily: MONO, fontSize: 12, color: "#9a988f", marginTop: 5 }}>{film.year}</div>
+            )}
           </div>
-          {film.year && (
-            <div style={{ fontFamily: MONO, fontSize: 12, color: "#9a988f", marginTop: 5 }}>{film.year}</div>
-          )}
-        </div>
+        )
       ) : (
         <span style={{ fontFamily: MONO, fontSize: 13, color: "#6f6d67" }}>—</span>
       )}
@@ -258,6 +310,9 @@ export default function Videokisen() {
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
 
+  const [details, setDetails] = useState({});
+  const requestedDetails = useRef(new Set());
+
   const timers = useRef([]);
   const landedRef = useRef(0);
 
@@ -270,6 +325,23 @@ export default function Videokisen() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => { setSoundEnabled(soundOn); }, [soundOn]);
+
+  // hent plakat + fakta for filmene hjulet har landet på (én gang per film)
+  useEffect(() => {
+    if (spinning) return;
+    picks.filter(Boolean).forEach((f) => {
+      const k = keyOf(f);
+      if (!f.uri || requestedDetails.current.has(k)) return;
+      requestedDetails.current.add(k);
+      fetchFilmDetails(f.uri)
+        .then((info) => setDetails((d) => ({ ...d, [k]: info })))
+        .catch(() => {
+          /* uten detaljer viser vinduet bare tittel + år — helt ok */
+        });
+    });
+  }, [picks, spinning]);
+
+  const detailsFor = (f) => (f ? details[keyOf(f)] || null : null);
 
   useEffect(() => {
     saveState({
@@ -601,7 +673,7 @@ export default function Videokisen() {
               <div className="duel">
                 <DuelWindow
                   label={a.person} accent={ORANGE} film={displays[0]}
-                  rolling={spinning}
+                  info={detailsFor(picks[0])} rolling={spinning}
                   isWinner={winner === 0} isLoser={winner === 1}
                   flashing={flash === 0}
                 />
@@ -617,7 +689,7 @@ export default function Videokisen() {
                 </div>
                 <DuelWindow
                   label={b.person} accent={BLUE} film={displays[1]}
-                  rolling={spinning}
+                  info={detailsFor(picks[1])} rolling={spinning}
                   isWinner={winner === 1} isLoser={winner === 0}
                   flashing={flash === 1}
                 />
@@ -648,19 +720,23 @@ export default function Videokisen() {
                   {emptyText}
                 </span>
               ) : shown ? (
-                <div className={landed ? "settled" : ""}>
-                  <div className={`title-display${spinning ? " rolling" : ""}`}>
-                    <div style={{
-                      fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-                      fontSize: "clamp(22px, 7vw, 34px)", lineHeight: 1.1, letterSpacing: "-0.015em",
-                      overflowWrap: "break-word",
-                    }}>
-                      {shown.name}
+                <div className={landed ? "settled" : ""} style={{ width: "100%" }}>
+                  {landed && detailsFor(picks[0]) ? (
+                    <FilmCard film={picks[0]} info={detailsFor(picks[0])} big />
+                  ) : (
+                    <div className={`title-display${spinning ? " rolling" : ""}`} style={{ textAlign: "center" }}>
+                      <div style={{
+                        fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
+                        fontSize: "clamp(22px, 7vw, 34px)", lineHeight: 1.1, letterSpacing: "-0.015em",
+                        overflowWrap: "break-word",
+                      }}>
+                        {shown.name}
+                      </div>
+                      {shown.year && (
+                        <div style={{ fontFamily: MONO, fontSize: 13, color: "#9a988f", marginTop: 6 }}>{shown.year}</div>
+                      )}
                     </div>
-                    {shown.year && (
-                      <div style={{ fontFamily: MONO, fontSize: 13, color: "#9a988f", marginTop: 6 }}>{shown.year}</div>
-                    )}
-                  </div>
+                  )}
                   {landed && (() => {
                     const w = whose(picks[0]);
                     return (

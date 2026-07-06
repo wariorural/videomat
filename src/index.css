@@ -1,0 +1,179 @@
+/* Self-hostede fonter: Mac/iOS bruker Helvetica Neue + SF Mono fra systemet;
+   Android/Windows får Inter + JetBrains Mono i stedet for tilfeldig fallback */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin-700-normal.woff2") format("woff2");
+}
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --red: #d8442a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Komponenten bruker minHeight: 100% — da må hele kjeden ned til #root ha høyde */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #b9b6ac;
+  -webkit-font-smoothing: antialiased;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* fysisk trykk-følelse på alle knapper */
+.press {
+  transition: transform 120ms var(--ease-out);
+}
+.press:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* liste-slots og duell-vinduer: side om side → stablet på smal skjerm */
+.slots,
+.duel {
+  display: flex;
+  gap: 10px;
+}
+.duel {
+  align-items: stretch;
+}
+@media (max-width: 519px) {
+  .slots,
+  .duel {
+    flex-direction: column;
+  }
+}
+
+/* strøm-LED i topplinja */
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4a9d5f;
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.35),
+    0 0 4px rgba(74, 157, 95, 0.5);
+}
+.led.on {
+  background: var(--red);
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.35),
+    0 0 7px rgba(216, 68, 42, 0.85);
+  animation: led-blink 220ms steps(2, jump-none) infinite;
+}
+@keyframes led-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* tittel i display-vinduet: lett blur mens hjulet ruller */
+.title-display {
+  transition:
+    filter 160ms var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+.title-display.rolling {
+  filter: blur(0.5px);
+  opacity: 0.8;
+}
+
+/* landing */
+@keyframes settle {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.settled {
+  animation: settle 200ms var(--ease-out);
+}
+
+/* duell: highlight under tie-break + taper dimmes */
+.duel-win {
+  transition:
+    box-shadow 80ms linear,
+    opacity 240ms var(--ease-out);
+}
+.duel-win.flash {
+  box-shadow:
+    0 0 0 2px var(--red),
+    0 0 18px -4px rgba(216, 68, 42, 0.7);
+}
+/* dim innholdet, ikke selve vinduet — ellers gråner den mørke flaten mot panelet */
+.duel-win.loser > * {
+  opacity: 0.28;
+}
+
+/* vinner-stempel */
+@keyframes stamp-in {
+  from {
+    transform: rotate(-7deg) scale(1.7);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(-7deg) scale(1);
+    opacity: 1;
+  }
+}
+.stamp {
+  animation: stamp-in 180ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led.on {
+    animation: none;
+  }
+  .settled,
+  .stamp {
+    animation: none;
+  }
+  .title-display.rolling {
+    filter: none;
+  }
+}

@@ -54,10 +54,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* raskt gjentatt trykk (Spin again) skal ikke trigge dobbelttrykk-zoom på iOS */
+button,
+a,
+label,
+input,
+.toggle {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ytre marg + safe-area for standalone PWA (notch/home-indicator) */
+.page {
+  padding: 22px 16px 40px;
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
+}
+
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+.toggle:focus-visible {
   outline: 2px solid var(--red);
   outline-offset: 2px;
+}
+
+/* tekstlenke-knapp (reset/undo) — erstatter inline-stil */
+.linkbtn {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--red);
+  text-decoration: underline;
 }
 
 /* fysisk trykk-følelse på alle knapper */
@@ -66,6 +98,65 @@ input:focus-visible {
 }
 .press:active {
   transform: translateY(1px) scale(0.98);
+}
+/* hover kun på ekte pekere (unngå falsk hover ved tap) */
+@media (hover: hover) and (pointer: fine) {
+  .mode-btn:hover {
+    background: #f0eee7;
+  }
+  .linkbtn:hover {
+    color: #a8321a;
+  }
+  .rename:hover {
+    border-color: rgba(28, 27, 25, 0.25) !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+  }
+}
+
+/* redigerbart navn: vis at det kan endres ved fokus */
+.rename:focus {
+  border-color: rgba(28, 27, 25, 0.3) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  outline: none;
+}
+
+/* «no repeats»-bryter i Braun-formspråk (erstatter native checkbox) */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px;
+  min-height: 34px;
+}
+.toggle-track {
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: #c2bfb6;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  position: relative;
+  transition: background 140ms var(--ease-out);
+  flex-shrink: 0;
+}
+.toggle-track.on {
+  background: var(--red);
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #f5f3ec;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 140ms var(--ease-out);
+}
+.toggle-track.on .toggle-knob {
+  transform: translateX(13px);
 }
 
 /* liste-slots: alltid to kolonner; duell-vinduer stables på smal skjerm */
@@ -157,9 +248,20 @@ input:focus-visible {
     0 0 0 2px var(--red),
     0 0 18px -4px rgba(216, 68, 42, 0.7);
 }
+/* vinneren får en rød ring — forsterker stempelet */
+.duel-win.winner {
+  box-shadow:
+    0 0 0 2px var(--red),
+    0 0 22px -6px rgba(216, 68, 42, 0.6);
+}
 /* dim innholdet, ikke selve vinduet — ellers gråner den mørke flaten mot panelet */
 .duel-win.loser > * {
   opacity: 0.28;
+}
+
+/* pen linjebryting på titler */
+.balance {
+  text-wrap: balance;
 }
 
 /* vinner-stempel */

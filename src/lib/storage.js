@@ -8,10 +8,17 @@ export function loadState() {
   }
 }
 
+let timer = null;
+
+// Skriv sjelden: state endres på hvert tastetrykk i navnefeltet, men vi
+// trenger bare å persistere når det roer seg.
 export function saveState(state) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch {
-    /* full/blokkert storage skal aldri velte appen */
-  }
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+      /* full/blokkert storage skal aldri velte appen */
+    }
+  }, 300);
 }

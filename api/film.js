@@ -30,17 +30,32 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Følg redirects manuelt (boxd.it → letterboxd.com/film/...) og revalider
+  // host på HVERT hopp — ellers kan en åpen redirect på Letterboxd kapre
+  // serverens fetch til et internt/annet mål (SSRF).
   let page;
+  let current = url;
   try {
-    page = await fetch(url, {
-      headers: { "User-Agent": UA, "Accept-Language": "en" },
-      redirect: "follow", // boxd.it-korturler ender på letterboxd.com/film/...
-    });
+    for (let hop = 0; hop < 4; hop++) {
+      if (current.protocol !== "https:" || !ALLOWED_HOSTS.includes(current.hostname)) {
+        res.status(400).json({ error: "bad_uri" });
+        return;
+      }
+      page = await fetch(current, {
+        headers: { "User-Agent": UA, "Accept-Language": "en" },
+        redirect: "manual",
+      });
+      if (page.status >= 300 && page.status < 400 && page.headers.get("location")) {
+        current = new URL(page.headers.get("location"), current);
+        continue;
+      }
+      break;
+    }
   } catch {
     res.status(502).json({ error: "fetch_failed" });
     return;
   }
-  if (!page.ok) {
+  if (!page || !page.ok) {
     res.status(502).json({ error: "fetch_failed" });
     return;
   }

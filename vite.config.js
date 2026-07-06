@@ -22,7 +22,9 @@ export default defineConfig({
             options: {
               cacheName: "posters",
               cacheableResponse: { statuses: [0, 200] },
-              expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 3600 },
+              // opake plakater kvote-paddes hardt av nettleseren — hold antallet
+              // lavt og tøm hele cachen hvis kvoten sprenges (ellers feiler alt)
+              expiration: { maxEntries: 60, maxAgeSeconds: 30 * 24 * 3600, purgeOnQuotaError: true },
             },
           },
           {

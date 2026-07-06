@@ -7,6 +7,15 @@ export function keyOf(f) {
   return `${(f.name || "").toLowerCase().trim()}|${f.year || ""}`;
 }
 
+/* En CSV kan deles av hvem som helst — en fiendtlig fil kan sette "Letterboxd
+   URI" til javascript:… som ville kjørt i vår origin når lenken klikkes.
+   Slipp bare gjennom ekte Letterboxd-lenker; alt annet blir tom uri. */
+export function safeUri(raw) {
+  const s = (raw || "").trim();
+  if (/^https:\/\/(boxd\.it|letterboxd\.com)\//i.test(s)) return s;
+  return "";
+}
+
 export function parseCsv(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -22,7 +31,7 @@ export function parseCsv(file) {
           if (!name) continue;
           const year = (r.Year || r.year || "").toString().trim();
           const uri = r["Letterboxd URI"] || r.URI || r.uri || "";
-          const f = { name: name.trim(), year, uri: uri.trim() };
+          const f = { name: name.trim(), year, uri: safeUri(uri) };
           const k = keyOf(f);
           if (seen.has(k)) continue;
           seen.add(k);
@@ -56,6 +65,7 @@ export async function fetchFilmDetails(uri) {
 
 export const FETCH_ERRORS = {
   bad_user: "That doesn't look like a Letterboxd username",
+  rate_limited: "Too many lookups — wait a minute and try again",
   not_found: "No user with that name",
   empty: "That watchlist is empty or private",
   blocked: "Letterboxd didn't answer — upload the CSV instead",

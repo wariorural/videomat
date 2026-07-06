@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, FETCH_ERRORS } from "./lib/letterboxd.js";
+import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, safeUri, FETCH_ERRORS } from "./lib/letterboxd.js";
 import { loadState, saveState } from "./lib/storage.js";
 import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
 
@@ -13,10 +13,16 @@ const PANEL = "#DDDAD2";
 const PANEL_HI = "#E9E7E0";
 const PANEL_LO = "#C9C6BD";
 const RED = "#D8442A";        // Braun-rød, primær handling
+const ERROR = "#A8321A";      // mørkere rød for feiltekst (AA-kontrast på panel)
 const ORANGE = "#FF8000";     // Letterboxd oransje = liste A
 const GREEN = "#00C64A";      // Letterboxd grønn = overlapp
 const BLUE = "#40BCF4";       // Letterboxd blå = liste B
-const DIM = "#7A776E";
+const DIM = "#5D5A52";        // sekundærtekst på panel — ≥4.5:1
+// gråtoner på det mørke displayet (alle ≥4.5:1 mot INK)
+const D_HI = "#9a988f";       // år/rating
+const D_MID = "#8f8d84";      // regi/sjanger
+const D_LABEL = "#8a8880";    // vindu-etiketter
+const D_EMPTY = "#8a8880";    // tomtilstand
 
 const MONO = "'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace";
 const GROTESK = "'Helvetica Neue','Inter',Helvetica,Arial,sans-serif";
@@ -42,13 +48,8 @@ function buzz(pattern) {
 
 const ghostBtn = {
   fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase",
-  color: INK, background: "transparent", border: `1px solid rgba(28,27,25,0.3)`,
-  borderRadius: 3, padding: "4px 9px", cursor: "pointer",
-};
-
-const linkBtn = {
-  background: "none", border: "none", padding: 0, cursor: "pointer",
-  fontFamily: MONO, fontSize: 11.5, color: RED, textDecoration: "underline",
+  color: INK, background: "transparent", border: `1px solid rgba(28,27,25,0.32)`,
+  borderRadius: 3, padding: "8px 12px", cursor: "pointer", minHeight: 34,
 };
 
 function Dot({ c }) {
@@ -93,20 +94,25 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
       {loaded ? (
         <div>
           <input
+            className="rename"
             value={slot.person}
             onChange={(e) => onPersonChange(e.target.value)}
-            aria-label="Name"
+            aria-label="Display name (tap to rename)"
+            title="Tap to rename"
+            name={`name-${side}`}
+            autoComplete="off"
             style={{
               fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK,
-              background: "transparent", border: "none", borderBottom: "1px dashed rgba(28,27,25,0.25)",
-              padding: "0 0 1px", width: "100%", minWidth: 0,
+              background: "transparent", border: "1px solid transparent",
+              borderBottom: "1px dashed rgba(28,27,25,0.35)",
+              borderRadius: 3, padding: "2px 4px", width: "100%", minWidth: 0,
             }}
           />
           <div style={{ fontFamily: MONO, fontSize: 12, color: DIM, marginTop: 4 }}>
             {slot.films.length} films · {slot.username ? `@${slot.username}` : slot.filename}
           </div>
           {slot.total > slot.films.length && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: RED, marginTop: 2 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: ERROR, marginTop: 2 }}>
               fetched {slot.films.length} of {slot.total}
             </div>
           )}
@@ -126,17 +132,21 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
             style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
           >
             <input
+              className="uname"
               value={uname}
               onChange={(e) => setUname(e.target.value)}
-              placeholder="username"
+              placeholder="letterboxd username"
               autoCapitalize="none"
               autoCorrect="off"
+              autoComplete="off"
               spellCheck={false}
+              name={`user-${side}`}
               aria-label="Letterboxd username"
               style={{
                 flex: "1 1 110px", minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
-                background: "rgba(255,255,255,0.35)", border: "1px solid rgba(28,27,25,0.25)",
-                borderRadius: 3, padding: "6px 8px",
+                background: "#CFCCC3", border: "1px solid rgba(28,27,25,0.18)",
+                borderRadius: 3, padding: "9px 10px",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
               }}
             />
             <button
@@ -145,20 +155,21 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
               disabled={fetching || !uname.trim()}
               style={{
                 ...ghostBtn, background: INK, color: "#F5F3EC", border: `1px solid ${INK}`,
-                padding: "6px 11px", opacity: fetching || !uname.trim() ? 0.45 : 1,
+                opacity: fetching || !uname.trim() ? 0.45 : 1,
               }}
             >
               {fetching ? "…" : "fetch"}
             </button>
           </form>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, color: DIM, marginTop: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: DIM, marginTop: 6, lineHeight: 1.4 }}>
             {optional
-              ? "optional — unlocks Movie night & Duel"
-              : "Letterboxd username (public watchlist)"}
+              ? "optional — a friend's username unlocks Movie night & Duel"
+              : "any public Letterboxd watchlist"}
           </div>
           <button
+            className="press"
             onClick={() => fileRef.current && fileRef.current.click()}
-            style={{ ...linkBtn, color: DIM, fontSize: 11, marginTop: 8 }}
+            style={{ ...ghostBtn, fontSize: 10, padding: "6px 10px", minHeight: 30, marginTop: 8 }}
           >
             or upload watchlist.csv
           </button>
@@ -166,7 +177,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
       )}
 
       {error && (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: RED, marginTop: 8, lineHeight: 1.4 }}>
+        <div role="alert" style={{ fontFamily: MONO, fontSize: 11, color: ERROR, marginTop: 8, lineHeight: 1.4 }}>
           {error}
         </div>
       )}
@@ -194,32 +205,32 @@ function FilmCard({ film, info, big }) {
           referrerPolicy="no-referrer"
           className="poster-fade"
           style={{
-            width: big ? 100 : 64, aspectRatio: "2 / 3", objectFit: "cover",
+            width: big ? 104 : 64, aspectRatio: "2 / 3", objectFit: "cover",
             borderRadius: 4, flexShrink: 0, background: "#2a2926",
             boxShadow: "0 4px 14px -6px rgba(0,0,0,0.8)",
           }}
         />
       )}
       <div style={{ minWidth: 0 }}>
-        <div style={{
+        <div className="balance" style={{
           fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-          fontSize: big ? "clamp(19px, 5.5vw, 27px)" : "clamp(15px, 4vw, 19px)",
-          lineHeight: 1.12, letterSpacing: "-0.015em", overflowWrap: "break-word",
+          fontSize: big ? "clamp(22px, 6.2vw, 32px)" : "clamp(16px, 4.2vw, 20px)",
+          lineHeight: 1.08, letterSpacing: "-0.02em", overflowWrap: "break-word",
         }}>
           {film.name}
         </div>
-        <div style={{ fontFamily: MONO, fontSize: big ? 12 : 11, color: "#9a988f", marginTop: 5 }}>
+        <div style={{ fontFamily: MONO, fontSize: big ? 12 : 11, color: D_HI, marginTop: 6 }}>
           {[film.year, info.runtime ? `${info.runtime} min` : null, info.rating ? `★ ${info.rating}` : null]
             .filter(Boolean).join(" · ")}
         </div>
         {(info.director || info.genres?.length > 0) && (
-          <div style={{ fontFamily: MONO, fontSize: big ? 11 : 10, color: "#7a786f", marginTop: 2 }}>
+          <div style={{ fontFamily: MONO, fontSize: big ? 11 : 10, color: D_MID, marginTop: 2 }}>
             {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
               .filter(Boolean).join(" — ")}
           </div>
         )}
         {info.synopsis && (
-          <div style={{ fontFamily: GROTESK, fontSize: big ? 12.5 : 11.5, lineHeight: 1.5, color: "#b9b7ae", marginTop: big ? 8 : 6 }}>
+          <div style={{ fontFamily: GROTESK, fontSize: big ? 13 : 11.5, lineHeight: 1.5, color: "#c3c1b8", marginTop: big ? 9 : 6 }}>
             {info.synopsis}
           </div>
         )}
@@ -233,10 +244,11 @@ function FilmCard({ film, info, big }) {
 function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, flashing }) {
   return (
     <div
-      className={`duel-win${flashing ? " flash" : ""}${isLoser ? " loser" : ""}`}
+      className={`duel-win${flashing ? " flash" : ""}${isLoser ? " loser" : ""}${isWinner ? " winner" : ""}`}
       style={{
-        flex: 1, background: INK, borderRadius: 6, padding: "30px 16px 18px",
-        minHeight: 128, display: "flex", flexDirection: "column",
+        flex: 1, background: INK, borderRadius: 6,
+        padding: film ? "34px 16px 16px" : "16px 16px 14px",
+        minHeight: film ? 128 : 58, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", textAlign: "center",
         position: "relative", overflow: "hidden", minWidth: 0,
       }}
@@ -246,21 +258,38 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
         background: "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,0.06), transparent 60%)",
         pointerEvents: "none",
       }} />
-      <div style={{
-        position: "absolute", top: 9, left: 0, right: 0,
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-      }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: "#8a8880", textTransform: "uppercase" }}>
-          {label}
-        </span>
-      </div>
+      {/* topp-etikett vises kun når kortet har en film — bytter til
+          WINNER-stempel når kortet vinner. Sitter i topp-paddingen,
+          klarer alltid det sentrerte innholdet. */}
+      {film && (
+        <div style={{
+          position: "absolute", top: isWinner ? 6 : 9, left: 0, right: 0,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>
+          {isWinner ? (
+            <span className="stamp" style={{
+              border: `2px solid ${RED}`, color: RED, borderRadius: 3,
+              fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+              padding: "2px 12px 1px",
+            }}>
+              WINNER
+            </span>
+          ) : (
+            <>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: D_LABEL, textTransform: "uppercase" }}>
+                {label}
+              </span>
+            </>
+          )}
+        </div>
+      )}
       {film ? (
         !rolling && info ? (
           <FilmCard film={film} info={info} />
         ) : (
           <div className={`title-display${rolling ? " rolling" : ""}`}>
-            <div style={{
+            <div className="balance" style={{
               fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
               fontSize: "clamp(17px, 4.6vw, 23px)", lineHeight: 1.15, letterSpacing: "-0.01em",
               overflowWrap: "break-word",
@@ -268,22 +297,15 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
               {film.name}
             </div>
             {film.year && (
-              <div style={{ fontFamily: MONO, fontSize: 12, color: "#9a988f", marginTop: 5 }}>{film.year}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: D_HI, marginTop: 5 }}>{film.year}</div>
             )}
           </div>
         )
       ) : (
-        <span style={{ fontFamily: MONO, fontSize: 13, color: "#6f6d67" }}>—</span>
-      )}
-      {isWinner && (
-        <div className="stamp" style={{
-          position: "absolute", bottom: 8, left: "50%", marginLeft: -46,
-          border: `2px solid ${RED}`, color: RED, borderRadius: 3,
-          fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
-          padding: "3px 0 2px", background: "rgba(28,27,25,0.85)", width: 92, textAlign: "center",
-        }}>
-          WINNER
-        </div>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: D_LABEL, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />
+          {label}
+        </span>
       )}
     </div>
   );
@@ -300,6 +322,8 @@ export default function Videokisen() {
   const [excluded, setExcluded] = useState(() => new Set(saved?.excluded || []));
   const [fetching, setFetching] = useState({ a: false, b: false });
   const [errors, setErrors] = useState({ a: null, b: null });
+  const [undo, setUndo] = useState(null); // { key, name } etter "seen it"
+  const undoTimer = useRef(null);
 
   const [picks, setPicks] = useState([null, null]);
   const [displays, setDisplays] = useState([null, null]);
@@ -562,8 +586,19 @@ export default function Videokisen() {
 
   const markWatched = () => {
     if (!chosenFilm) return;
-    setExcluded((s) => new Set(s).add(keyOf(chosenFilm)));
+    const k = keyOf(chosenFilm);
+    setExcluded((s) => new Set(s).add(k));
+    setUndo({ key: k, name: chosenFilm.name });
+    clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
     resetRound();
+  };
+
+  const undoWatched = () => {
+    if (!undo) return;
+    setExcluded((s) => { const n = new Set(s); n.delete(undo.key); return n; });
+    setUndo(null);
+    clearTimeout(undoTimer.current);
   };
 
   const resetExcluded = () => setExcluded(new Set());
@@ -584,18 +619,18 @@ export default function Videokisen() {
       ? "ADD A SECOND LIST FOR THIS MODE"
       : mode === "date" && overlap.length === 0
         ? "NO SHARED FILMS — TRY ROULETTE"
-        : "EVERYTHING'S BEEN SEEN — RESET?";
+        : "EVERYTHING’S BEEN SEEN — RESET?";
 
   const shown = displays[0] || picks[0];
   const landed = picks[0] && !spinning;
 
   return (
-    <div style={{
+    <div className="page" style={{
       minHeight: "100%", background: "#B9B6AC",
-      fontFamily: GROTESK, color: INK, padding: "22px 16px 40px",
+      fontFamily: GROTESK, color: INK,
       display: "flex", justifyContent: "center",
     }}>
-      <div style={{
+      <main style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
         background: PANEL,
         border: `1px solid ${PANEL_LO}`,
@@ -605,18 +640,18 @@ export default function Videokisen() {
         position: "relative",
       }}>
         {/* Topplinje */}
-        <div style={{
+        <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 18px 14px", borderBottom: `1px solid ${PANEL_LO}`,
         }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em" }}>Videokisen</div>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, letterSpacing: "0.1em", marginTop: 2 }}>
+            <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videokisen</h1>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, letterSpacing: "0.1em", marginTop: 5 }}>
               ONE SPIN · ONE FILM
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", gap: 5 }}>
+            <div style={{ display: "flex", gap: 5 }} aria-hidden="true">
               <Dot c={ORANGE} /><Dot c={GREEN} /><Dot c={BLUE} />
             </div>
             <span className={`led${spinning || deciding ? " on" : ""}`} aria-hidden="true" />
@@ -624,12 +659,23 @@ export default function Videokisen() {
               className="press"
               onClick={() => setSoundOn(!soundOn)}
               aria-pressed={soundOn}
-              style={{ ...ghostBtn, fontSize: 10, padding: "3px 7px", color: soundOn ? INK : DIM }}
+              style={{ ...ghostBtn, fontSize: 10, padding: "7px 9px", minHeight: 30 }}
             >
               sound {soundOn ? "on" : "off"}
             </button>
           </div>
-        </div>
+        </header>
+
+        {/* Intro for førstegangsbrukere — forsvinner når noe er lastet */}
+        {!oneLoaded && (
+          <p style={{
+            margin: 0, padding: "12px 18px 0", fontFamily: GROTESK, fontSize: 13.5,
+            lineHeight: 1.5, color: INK,
+          }}>
+            Can’t pick a film? Feed it your Letterboxd watchlist and let the machine spin.
+            Add a friend’s list to find what you both want to see.
+          </p>
+        )}
 
         {/* Innmating */}
         <div className="slots" style={{ padding: "14px 18px" }}>
@@ -658,7 +704,7 @@ export default function Videokisen() {
             {noRepeat && excluded.size > 0 && (
               <span>
                 <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
-                <button onClick={resetExcluded} style={linkBtn}>reset</button>
+                <button className="linkbtn" onClick={resetExcluded}>reset</button>
               </span>
             )}
           </div>
@@ -675,7 +721,7 @@ export default function Videokisen() {
                   isWinner={winner === 0} isLoser={winner === 1}
                   flashing={flash === 0}
                 />
-                <div className="duel-vs" style={{
+                <div className="duel-vs" aria-hidden="true" style={{
                   alignSelf: "center", flexShrink: 0,
                   width: 34, height: 34, borderRadius: "50%",
                   background: fate ? RED : INK, color: "#F5F3EC",
@@ -704,7 +750,7 @@ export default function Videokisen() {
           ) : (
             <div style={{
               background: INK, borderRadius: 6, padding: "26px 22px",
-              minHeight: 156, display: "flex", flexDirection: "column",
+              minHeight: 172, display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center", textAlign: "center",
               position: "relative", overflow: "hidden",
             }}>
@@ -714,7 +760,7 @@ export default function Videokisen() {
                 pointerEvents: "none",
               }} />
               {!canSpin && !shown ? (
-                <span style={{ color: "#6f6d67", fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
+                <span style={{ color: D_EMPTY, fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
                   {emptyText}
                 </span>
               ) : shown ? (
@@ -723,15 +769,15 @@ export default function Videokisen() {
                     <FilmCard film={picks[0]} info={detailsFor(picks[0])} big />
                   ) : (
                     <div className={`title-display${spinning ? " rolling" : ""}`} style={{ textAlign: "center" }}>
-                      <div style={{
+                      <div className="balance" style={{
                         fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-                        fontSize: "clamp(22px, 7vw, 34px)", lineHeight: 1.1, letterSpacing: "-0.015em",
+                        fontSize: "clamp(28px, 8vw, 46px)", lineHeight: 1.02, letterSpacing: "-0.025em",
                         overflowWrap: "break-word",
                       }}>
                         {shown.name}
                       </div>
                       {shown.year && (
-                        <div style={{ fontFamily: MONO, fontSize: 13, color: "#9a988f", marginTop: 6 }}>{shown.year}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, color: D_HI, marginTop: 8 }}>{shown.year}</div>
                       )}
                     </div>
                   )}
@@ -740,7 +786,7 @@ export default function Videokisen() {
                     return (
                       <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", justifyContent: "center" }}>
                         {bothLoaded && (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#b9b7ae" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#c3c1b8" }}>
                             <span style={{ width: 8, height: 8, borderRadius: "50%", background: w.color }} />
                             {w.label}
                           </span>
@@ -756,7 +802,7 @@ export default function Videokisen() {
                   })()}
                 </div>
               ) : (
-                <span style={{ color: "#6f6d67", fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
+                <span style={{ color: D_EMPTY, fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
                   READY · PRESS SPIN
                 </span>
               )}
@@ -770,12 +816,13 @@ export default function Videokisen() {
         </div>
 
         {/* Modus */}
-        <div style={{ display: "flex", gap: 8, padding: "14px 18px 6px" }}>
+        <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 8, padding: "14px 18px 6px" }}>
           {MODES.map((m) => {
             const on = mode === m.id;
             return (
               <button key={m.id}
-                className="press"
+                className="press mode-btn"
+                aria-pressed={on}
                 onClick={() => switchMode(m.id)}
                 style={{
                   flex: 1, cursor: "pointer", borderRadius: 5, padding: "9px 6px 8px",
@@ -787,7 +834,7 @@ export default function Videokisen() {
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
                   <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: on ? "#F5F3EC" : INK }}>{m.label}</span>
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: on ? "#9a988f" : DIM, marginTop: 3, paddingLeft: 13 }}>{m.sub}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: on ? D_HI : DIM, marginTop: 3, paddingLeft: 13 }}>{m.sub}</div>
               </button>
             );
           })}
@@ -795,6 +842,19 @@ export default function Videokisen() {
 
         {/* Kontroller */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 18px 20px" }}>
+          {undo && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+              fontFamily: MONO, fontSize: 11, color: DIM,
+              background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 5, padding: "8px 12px",
+            }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Marked “{undo.name}” as seen
+              </span>
+              <button className="linkbtn" onClick={undoWatched} style={{ flexShrink: 0 }}>undo</button>
+            </div>
+          )}
+
           {duelLanded && !fate && winner === null && (
             <button
               className="press"
@@ -802,7 +862,7 @@ export default function Videokisen() {
               disabled={deciding}
               style={{
                 background: INK, color: "#F5F3EC", border: "none", borderRadius: 6,
-                padding: "12px 16px", cursor: deciding ? "default" : "pointer",
+                padding: "13px 16px", cursor: deciding ? "default" : "pointer",
                 fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.16em",
                 boxShadow: "0 2px 0 rgba(0,0,0,0.22)",
               }}>
@@ -820,7 +880,7 @@ export default function Videokisen() {
                 background: !canSpin ? PANEL_LO : RED,
                 color: !canSpin ? DIM : "#fff",
                 border: "none", borderRadius: 7, padding: "16px 20px",
-                fontFamily: GROTESK, fontSize: 17, fontWeight: 700, letterSpacing: "0.02em",
+                fontFamily: GROTESK, fontSize: 19, fontWeight: 700, letterSpacing: "0.01em",
                 boxShadow: !canSpin ? "none" : "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.22) inset",
               }}>
               {spinning ? "spinning…" : picks[0] ? "Spin again" : "Spin"}
@@ -832,13 +892,19 @@ export default function Videokisen() {
               </button>
             )}
 
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: MONO, fontSize: 11, color: DIM }}>
-              <input type="checkbox" checked={noRepeat} onChange={(e) => setNoRepeat(e.target.checked)} style={{ accentColor: RED }} />
-              no repeats
-            </label>
+            <button
+              className="press toggle"
+              role="switch"
+              aria-checked={noRepeat}
+              aria-label="No repeats"
+              onClick={() => setNoRepeat(!noRepeat)}
+            >
+              <span className={`toggle-track${noRepeat ? " on" : ""}`}><span className="toggle-knob" /></span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: DIM }}>no repeats</span>
+            </button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -186,7 +186,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
 
 function FilmCard({ film, info, big }) {
   return (
-    <div style={{ display: "flex", gap: big ? 16 : 12, alignItems: "center", textAlign: "left", width: "100%", minWidth: 0 }}>
+    <div style={{ display: "flex", gap: big ? 16 : 12, alignItems: "flex-start", textAlign: "left", width: "100%", minWidth: 0 }}>
       {info.poster && (
         <img
           src={info.poster}
@@ -194,7 +194,7 @@ function FilmCard({ film, info, big }) {
           referrerPolicy="no-referrer"
           className="poster-fade"
           style={{
-            width: big ? 92 : 62, aspectRatio: "2 / 3", objectFit: "cover",
+            width: big ? 100 : 64, aspectRatio: "2 / 3", objectFit: "cover",
             borderRadius: 4, flexShrink: 0, background: "#2a2926",
             boxShadow: "0 4px 14px -6px rgba(0,0,0,0.8)",
           }}
@@ -212,16 +212,14 @@ function FilmCard({ film, info, big }) {
           {[film.year, info.runtime ? `${info.runtime} min` : null, info.rating ? `★ ${info.rating}` : null]
             .filter(Boolean).join(" · ")}
         </div>
-        {info.director && (
+        {(info.director || info.genres?.length > 0) && (
           <div style={{ fontFamily: MONO, fontSize: big ? 11 : 10, color: "#7a786f", marginTop: 2 }}>
-            dir. {info.director}
+            {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
+              .filter(Boolean).join(" — ")}
           </div>
         )}
         {info.synopsis && (
-          <div
-            className={big ? "clamp3" : "clamp2"}
-            style={{ fontFamily: GROTESK, fontSize: big ? 12.5 : 11.5, lineHeight: 1.45, color: "#b9b7ae", marginTop: big ? 8 : 6 }}
-          >
+          <div style={{ fontFamily: GROTESK, fontSize: big ? 12.5 : 11.5, lineHeight: 1.5, color: "#b9b7ae", marginTop: big ? 8 : 6 }}>
             {info.synopsis}
           </div>
         )}

@@ -83,20 +83,6 @@ input:focus-visible {
   }
 }
 
-/* synopsis-klamping */
-.clamp2,
-.clamp3 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.clamp2 {
-  -webkit-line-clamp: 2;
-}
-.clamp3 {
-  -webkit-line-clamp: 3;
-}
-
 /* plakat toner inn når den er lastet */
 @keyframes poster-in {
   from {

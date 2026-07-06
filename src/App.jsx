@@ -23,7 +23,7 @@ const GROTESK = "'Helvetica Neue','Inter',Helvetica,Arial,sans-serif";
 
 const MODES = [
   { id: "all", label: "Roulette", sub: "the whole pool", dot: INK },
-  { id: "date", label: "Date night", sub: "overlap only", dot: GREEN },
+  { id: "date", label: "Movie night", sub: "overlap only", dot: GREEN },
   { id: "duell", label: "Duel", sub: "one from each", dot: RED },
 ];
 
@@ -153,7 +153,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
           </form>
           <div style={{ fontFamily: MONO, fontSize: 10.5, color: DIM, marginTop: 6 }}>
             {optional
-              ? "optional — unlocks Date night & Duel"
+              ? "optional — unlocks Movie night & Duel"
               : "Letterboxd username (public watchlist)"}
           </div>
           <button

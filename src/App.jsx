@@ -710,7 +710,7 @@ export default function Videokisen() {
                   textAlign: "left", transition: "background 120ms", minWidth: 0,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: m.dot, flexShrink: 0 }} />
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
                   <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: on ? "#F5F3EC" : INK }}>{m.label}</span>
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: on ? "#9a988f" : DIM, marginTop: 3, paddingLeft: 13 }}>{m.sub}</div>

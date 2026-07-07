@@ -974,7 +974,7 @@ export default function Videokisen() {
     <div className="page" style={{
       minHeight: "100%", backgroundColor: "#B9B6AC",
       fontFamily: GROTESK, color: INK,
-      display: "flex", justifyContent: "center",
+      display: "flex", flexDirection: "column", alignItems: "center",
     }}>
       {/* ── GRID-REGLER ─────────────────────────────────────────────
           Indre bredde W = 560 − 2×18. Gutter = 10px overalt.
@@ -986,7 +986,7 @@ export default function Videokisen() {
           er faste; detaljer og undo bor i popup/toast.
           ───────────────────────────────────────────────────────── */}
       <main className="machine" style={{
-        width: "100%", maxWidth: 560, alignSelf: "flex-start",
+        width: "100%", maxWidth: 560,
         border: `1px solid ${PANEL_LO}`,
         borderRadius: 8,
         boxShadow: "0 1px 0 rgba(255,255,255,0.5) inset, 0 18px 40px -22px rgba(0,0,0,0.55)",
@@ -1299,6 +1299,17 @@ export default function Videokisen() {
           </div>
         )}
       </main>
+
+      <footer style={{ marginTop: 16 }}>
+        <a
+          href="https://part.no"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bypart"
+        >
+          MADE BY PART <span aria-hidden="true">→</span>
+        </a>
+      </footer>
     </div>
   );
 }

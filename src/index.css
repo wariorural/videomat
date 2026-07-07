@@ -332,6 +332,24 @@ input:focus-visible,
   }
 }
 
+/* ── «by part»-kreditering under maskinen ─────────────────────── */
+.bypart {
+  display: inline-block;
+  padding: 12px; /* 44px treffflate */
+  font-family: "Doto", "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--dim);
+  text-decoration: none;
+  transition: color 120ms;
+}
+@media (hover: hover) and (pointer: fine) {
+  .bypart:hover {
+    color: var(--red);
+  }
+}
+
 /* ── undo-toast: flyter over bunnraden, null layout-skift ─────── */
 .toast {
   position: absolute;

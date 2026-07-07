@@ -3,7 +3,7 @@
    og svarer { user, total, fetched, films: [{ name, year, uri }] }. */
 
 const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 Videokisen/1.0";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 Videomat/1.0";
 const PER_PAGE = 28;
 const MAX_PAGES = 40; // ~1120 filmer — over det sier vi ærlig fra i UI-et
 

@@ -1,4 +1,4 @@
-const KEY = "videokisen:v1";
+const KEY = "videokisen:v1"; // historisk nøkkel fra før Videomat-navnet — IKKE endre (mister brukernes lagrede lister)
 
 export function loadState() {
   try {

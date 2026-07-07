@@ -5,7 +5,7 @@ import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
 import SplitFlapDisplay from "./SplitFlap.jsx";
 
 /* ─────────────────────────────────────────────────────────────
-   VIDEOKISEN · en Braun-aktig maskin for to filmlister
+   VIDEOMAT · en Braun-aktig maskin for to filmlister
    Letterboxd-brukernavn eller watchlist.csv (Settings → Data → Export)
    ───────────────────────────────────────────────────────────── */
 
@@ -605,7 +605,7 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
 
 /* ── selve maskinen ───────────────────────────────────────────── */
 
-export default function Videokisen() {
+export default function Videomat() {
   const [a, setA] = useState(() => ({ ...EMPTY_SLOT, person: DEFAULT_PERSON.a, ...(saved?.a || {}) }));
   const [b, setB] = useState(() => ({ ...EMPTY_SLOT, person: DEFAULT_PERSON.b, ...(saved?.b || {}) }));
   const [mode, setMode] = useState(saved?.mode || "all");
@@ -1006,7 +1006,7 @@ export default function Videokisen() {
           padding: "16px 18px 14px", borderBottom: `1px solid ${PANEL_LO}`,
         }}>
           <div>
-            <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videokisen</h1>
+            <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
             <div style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: DIM, letterSpacing: "0.13em", marginTop: 5 }}>
               ONE SPIN · ONE FILM
             </div>

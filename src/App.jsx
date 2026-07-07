@@ -816,11 +816,12 @@ export default function Videokisen() {
     }}>
       {/* ── GRID-REGLER ─────────────────────────────────────────────
           Indre bredde W = 560 − 2×18. Gutter = 10px overalt.
-          2 kolonner: List A/B (.slots) og duel-vinduene (.duel)
+          2 kolonner: List A/B (.slots), duel-vinduene (.duel) og
+          bunnen (.ctrl-grid): Spin = hele venstre halvdel over to
+          rader; Seen it (rad 1) og no repeats (rad 2) stables på
+          høyre halvdel med lik look. Posisjonene er faste så
+          ingenting hopper når Seen it kommer og går.
           3 kolonner: modus-kortene (.modes)
-          4 kolonner: bunnraden (.ctrl-grid) — Spin spenner 2 (= 2-kol-
-          linja), Seen it i kol 3, no repeats i kol 4. Posisjonene er
-          faste så ingenting hopper når Seen it kommer og går.
           ───────────────────────────────────────────────────────── */}
       <main className="machine" style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
@@ -1026,7 +1027,11 @@ export default function Videokisen() {
                   flex: 1, cursor: "pointer", borderRadius: 5, padding: "9px 6px 8px",
                   background: on ? INK : PANEL_HI,
                   border: `1px solid ${on ? INK : PANEL_LO}`,
-                  textAlign: "left", transition: "background 120ms", minWidth: 0,
+                  /* fysisk vippebryter: aktiv = trykket inn, inaktiv = hevet */
+                  boxShadow: on
+                    ? "inset 0 2px 3px rgba(0,0,0,0.4)"
+                    : "0 2px 0 rgba(0,0,0,0.14), 0 1px 0 rgba(255,255,255,0.5) inset",
+                  textAlign: "left", transition: "background 120ms, box-shadow 120ms", minWidth: 0,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ width: 7, height: 7, borderRadius: 1, background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
@@ -1097,14 +1102,24 @@ export default function Videokisen() {
             )}
 
             <button
-              className="press toggle ctrl-norepeat"
+              className="press ctrl-norepeat"
               role="switch"
               aria-checked={noRepeat}
-              aria-label="No repeats"
               onClick={() => setNoRepeat(!noRepeat)}
+              style={{
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+                background: noRepeat ? INK : PANEL_HI,
+                color: noRepeat ? "#F5F3EC" : INK,
+                border: `1px solid ${noRepeat ? INK : PANEL_LO}`,
+                borderRadius: 7, padding: "12px 8px",
+                fontFamily: GROTESK, fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
+                boxShadow: "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.14) inset",
+                transition: "background 120ms, color 120ms, border-color 120ms",
+              }}
             >
               <span className={`toggle-track${noRepeat ? " on" : ""}`}><span className="toggle-knob" /></span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: DIM }}>no repeats</span>
+              No repeats
             </button>
           </div>
         </div>

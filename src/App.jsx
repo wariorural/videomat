@@ -511,7 +511,11 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
               </div>
             )}
             {info?.cast?.length > 0 && (
-              <div style={{ fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{
+                fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.5, marginTop: 2,
+                /* alle tre skal med — bryt heller enn å klippe */
+                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+              }}>
                 {info.cast.join(" · ")}
               </div>
             )}

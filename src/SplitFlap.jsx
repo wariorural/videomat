@@ -64,7 +64,7 @@ function Flap({ char }) {
   );
 }
 
-export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSettle }) {
+export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSettle, compact = false, delay = 0 }) {
   const lines = useMemo(() => toLines(text), [text]);
   const [grid, setGrid] = useState(() => lines.map((l) => [...l]));
   const [scale, setScale] = useState(1);
@@ -107,7 +107,7 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
       [...line].forEach((ch, ci) => flat.push({ li, ci, target: ch }))
     );
 
-    const CAD = 60, LEAD = 240, STAGGER = 62; // ms: takt, første landing, forsinkelse/kort
+    const CAD = 60, LEAD = 240 + delay, STAGGER = 62; // ms: takt, første landing, forsinkelse/kort
     flat.forEach((cell, k) => {
       const landing = LEAD + k * STAGGER;
       const isSpace = cell.target === " ";
@@ -144,7 +144,7 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   return (
-    <div className={`flap-wrap${landed ? " landed" : ""}`} ref={wrapRef}>
+    <div className={`flap-wrap${compact ? " flap-compact" : ""}${landed ? " landed" : ""}`} ref={wrapRef}>
       <div className="flap-scaler" ref={rowRef} style={{ transform: `scale(${scale})` }}>
         {grid.map((row, li) => (
           <div className="flap-row" key={li}>

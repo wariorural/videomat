@@ -15,7 +15,7 @@ const PANEL_HI = "#E9E7E0";
 const PANEL_LO = "#C9C6BD";
 const RED = "#DD5117";        // Braun-oransje, primær handling + eneste aksent
 const ERROR = "#A8321A";      // mørkere rød for feiltekst (AA-kontrast på panel)
-const ORANGE = "#FF8000";     // Letterboxd oransje = liste A
+const ORANGE = "#DD5117";     // én oransje i hele maskinen (= RED)
 const GREEN = "#00C64A";      // Letterboxd grønn = overlapp
 const BLUE = "#40BCF4";       // Letterboxd blå = liste B
 const DIM = "#5D5A52";        // sekundærtekst på panel — ≥4.5:1
@@ -32,7 +32,7 @@ const DOT = "'Doto','JetBrains Mono',ui-monospace,monospace";
 
 // modusene bærer Letterboxd-fargene: A-oransje, overlapp-grønn, B-blå
 const MODES = [
-  { id: "all", label: "Roulette", color: "lbOrange" },
+  { id: "all", label: "Roulette", color: "orange" },
   { id: "date", label: "Movie night", color: "lbGreen" },
   { id: "duell", label: "Duel", color: "lbBlue" },
 ];
@@ -56,7 +56,6 @@ const KEY_COLORS = {
   orange: { cap: "#DD5117", cap2: "#C9480F", hl: "rgba(255,191,143,0.9)", text: "#fff" },
   white: { cap: "#E3E2DA", cap2: "#DED8D5", hl: "rgba(255,255,255,0.95)", text: INK },
   ink: { cap: "#343835", cap2: "#313131", hl: "rgba(255,255,255,0.45)", text: "#F5F3EC" },
-  lbOrange: { cap: "#FF8000", cap2: "#EE7300", hl: "rgba(255,216,170,0.95)", text: INK },
   lbGreen: { cap: "#00C64A", cap2: "#00B441", hl: "rgba(195,255,215,0.95)", text: INK },
   lbBlue: { cap: "#40BCF4", cap2: "#2FB0EC", hl: "rgba(210,240,255,0.95)", text: INK },
 };
@@ -277,64 +276,28 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
   );
 }
 
-/* ── filmkort: plakat + fakta når hjulet har landet ───────────── */
+/* ── duell-vindu: kompakt split-flap, fast høyde, klikkbar ────── */
 
-function FilmCard({ film, info, big }) {
-  return (
-    <div style={{ display: "flex", gap: big ? 16 : 12, alignItems: "flex-start", textAlign: "left", width: "100%", minWidth: 0 }}>
-      {info.poster && (
-        <img
-          src={info.poster}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="poster-fade"
-          style={{
-            width: big ? 104 : 64, aspectRatio: "2 / 3", objectFit: "cover",
-            borderRadius: 4, flexShrink: 0, background: "#2a2926",
-            boxShadow: "0 4px 14px -6px rgba(0,0,0,0.8)",
-          }}
-        />
-      )}
-      <div style={{ minWidth: 0 }}>
-        <div className="balance" style={{
-          fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-          fontSize: big ? "clamp(22px, 6.2vw, 32px)" : "clamp(16px, 4.2vw, 20px)",
-          lineHeight: 1.08, letterSpacing: "-0.02em", overflowWrap: "break-word",
-        }}>
-          {film.name}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: big ? 12 : 11, color: D_HI, marginTop: 6 }}>
-          {[film.year, info.runtime ? `${info.runtime} min` : null, info.rating ? `★ ${info.rating}` : null]
-            .filter(Boolean).join(" · ")}
-        </div>
-        {(info.director || info.genres?.length > 0) && (
-          <div style={{ fontFamily: MONO, fontSize: big ? 11 : 10, color: D_MID, marginTop: 2 }}>
-            {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
-              .filter(Boolean).join(" — ")}
-          </div>
-        )}
-        {info.synopsis && (
-          <div style={{ fontFamily: GROTESK, fontSize: big ? 13 : 11.5, lineHeight: 1.5, color: "#c3c1b8", marginTop: big ? 9 : 6 }}>
-            {info.synopsis}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── duell-vindu ──────────────────────────────────────────────── */
-
-function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, flashing }) {
+function DuelWindow({ label, accent, film, spinning, spinKey, landed, delay, onSettle, isWinner, isLoser, flashing, canOpen, onOpen }) {
   return (
     <div
       className={`duel-win${flashing ? " flash" : ""}${isLoser ? " loser" : ""}${isWinner ? " winner" : ""}`}
+      {...(canOpen ? {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": `Details for ${film.name}`,
+        onClick: onOpen,
+        onKeyDown: (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(e); }
+        },
+      } : {})}
       style={{
         flex: 1, background: INK, borderRadius: 6,
-        padding: film ? "34px 16px 16px" : "16px 16px 14px",
-        minHeight: film ? 128 : 58, display: "flex", flexDirection: "column",
+        padding: "30px 12px 16px",
+        height: 148, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", textAlign: "center",
         position: "relative", overflow: "hidden", minWidth: 0,
+        cursor: canOpen ? "pointer" : "default",
       }}
     >
       <div style={{
@@ -342,9 +305,7 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
         background: "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,0.06), transparent 60%)",
         pointerEvents: "none",
       }} />
-      {/* topp-etikett vises kun når kortet har en film — bytter til
-          WINNER-stempel når kortet vinner. Sitter i topp-paddingen,
-          klarer alltid det sentrerte innholdet. */}
+      {/* topp-etikett — bytter til WINNER-stempel når kortet vinner */}
       {film && (
         <div style={{
           position: "absolute", top: isWinner ? 6 : 9, left: 0, right: 0,
@@ -369,22 +330,22 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
         </div>
       )}
       {film ? (
-        !rolling && info ? (
-          <FilmCard film={film} info={info} />
-        ) : (
-          <div className={`title-display${rolling ? " rolling" : ""}`}>
-            <div className="balance" style={{
-              fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-              fontSize: "clamp(17px, 4.6vw, 23px)", lineHeight: 1.15, letterSpacing: "-0.01em",
-              overflowWrap: "break-word",
-            }}>
-              {film.name}
+        <>
+          <SplitFlapDisplay
+            text={film.name}
+            spinning={spinning}
+            spinKey={spinKey}
+            landed={landed}
+            onSettle={onSettle}
+            compact
+            delay={delay}
+          />
+          {film.year && (
+            <div style={{ position: "relative", zIndex: 1, fontFamily: MONO, fontSize: 11, letterSpacing: "0.12em", color: D_HI, marginTop: 9 }}>
+              {film.year}
             </div>
-            {film.year && (
-              <div style={{ fontFamily: MONO, fontSize: 12, color: D_HI, marginTop: 5 }}>{film.year}</div>
-            )}
-          </div>
-        )
+          )}
+        </>
       ) : (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: D_LABEL, letterSpacing: "0.12em", textTransform: "uppercase" }}>
           <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
@@ -559,12 +520,15 @@ export default function Videokisen() {
   const [spinning, setSpinning] = useState(false);
   const [spinKey, setSpinKey] = useState(0);   // bumpes per spinn → trigger flap-flutter
   const pendingTarget = useRef(null);           // filmen flappene lander på (enkeltmodus)
+  const pendingDuel = useRef(null);             // [filmA, filmB] i duell
   const [showHelp, setShowHelp] = useState(false);
   const helpBtnRef = useRef(null);
   const helpCloseRef = useRef(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film i popup, null = lukket
+  const [detailsTop, setDetailsTop] = useState(12);   // popup ankres til feltet som ble klikket
   const detailsCloseRef = useRef(null);
-  const displayRef = useRef(null);
+  const detailsAnchorRef = useRef(null);
+  const machineRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
@@ -597,17 +561,17 @@ export default function Videokisen() {
     };
   }, [showHelp]);
 
-  // detalj-popup: Escape lukker, fokus inn og tilbake til displayet
+  // detalj-popup: Escape lukker, fokus inn og tilbake til feltet som åpnet
   useEffect(() => {
-    if (!showDetails) return;
+    if (detailsIdx === null) return;
     detailsCloseRef.current?.focus();
-    const onKey = (e) => { if (e.key === "Escape") setShowDetails(false); };
+    const onKey = (e) => { if (e.key === "Escape") setDetailsIdx(null); };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      displayRef.current?.focus();
+      detailsAnchorRef.current?.focus?.();
     };
-  }, [showDetails]);
+  }, [detailsIdx]);
 
   // hent plakat + fakta for filmene hjulet har landet på (én gang per film)
   useEffect(() => {
@@ -737,36 +701,6 @@ export default function Videokisen() {
 
   const rand = (list) => list[Math.floor(Math.random() * list.length)];
 
-  const land = (slotIdx, target, slotCount) => {
-    setDisplays((d) => { const n = [...d]; n[slotIdx] = target; return n; });
-    setPicks((p) => { const n = [...p]; n[slotIdx] = target; return n; });
-    clunk();
-    buzz([26, 30, 22]);
-    landedRef.current += 1;
-    if (landedRef.current >= slotCount) setSpinning(false);
-  };
-
-  // rulett: rask start, gradvis oppbremsing (ease-out), lander på target
-  const scheduleRoll = (slotIdx, steps, sourcePool, target, slotCount, withTicks) => {
-    let acc = 0;
-    for (let i = 0; i < steps; i++) {
-      const t = i / steps;
-      acc += 45 + Math.pow(t, 2.4) * 330;
-      const isLast = i === steps - 1;
-      timers.current.push(
-        setTimeout(() => {
-          if (isLast) {
-            land(slotIdx, target, slotCount);
-          } else {
-            const r = rand(sourcePool) || target;
-            setDisplays((d) => { const n = [...d]; n[slotIdx] = r; return n; });
-            if (withTicks) { tick(); buzz(8); }
-          }
-        }, acc)
-      );
-    }
-  };
-
   const spin = () => {
     if (spinning || deciding || !canSpin) return;
     clearTimers();
@@ -777,16 +711,18 @@ export default function Videokisen() {
     if (isDuel) {
       const tA = rand(poolA);
       const tB = rand(poolB);
+      pendingDuel.current = [tA, tB];
       if (reducedMotion) {
         setDisplays([tA, tB]);
         setPicks([tA, tB]);
         clunk();
         return;
       }
+      // begge vinduene flakser samtidig; B har ekstra delay og lander sist — drama
+      setDisplays([tA, tB]);
       setSpinning(true);
       landedRef.current = 0;
-      scheduleRoll(0, 22, a.films, tA, 2, true);
-      scheduleRoll(1, 27, b.films, tB, 2, false); // lander litt etter — drama
+      setSpinKey((k) => k + 1);
     } else {
       const target = rand(poolSingle);
       pendingTarget.current = target;
@@ -803,6 +739,17 @@ export default function Videokisen() {
       setSpinKey((k) => k + 1);
     }
   };
+
+  // duell: hvert vindu melder fra når flap-raden har roet seg
+  const onDuelSettle = useCallback((idx) => {
+    const t = pendingDuel.current?.[idx];
+    if (!t) return;
+    setPicks((p) => { const n = [...p]; n[idx] = t; return n; });
+    clunk();
+    buzz([26, 30, 22]);
+    landedRef.current += 1;
+    if (landedRef.current >= 2) setSpinning(false);
+  }, []);
 
   // enkeltmodus: flap-raden har landet → sett resultatet, hent detaljer
   const onFlapSettle = useCallback(() => {
@@ -897,12 +844,24 @@ export default function Videokisen() {
 
   const shown = displays[0] || picks[0];
   const landed = picks[0] && !spinning;
-  const canOpenDetails = !isDuel && !!landed && !!(detailsFor(picks[0]) || picks[0]?.uri);
+  const canOpen = (idx) => !spinning && !!picks[idx] && !!(detailsFor(picks[idx]) || picks[idx]?.uri);
+  const canOpenDetails = !isDuel && canOpen(0);
+
+  // popup ankres til feltet som ble klikket (topp relativt til maskinen)
+  const openDetails = (idx) => (e) => {
+    const el = e.currentTarget;
+    const m = machineRef.current;
+    if (m && el) {
+      setDetailsTop(Math.max(12, el.getBoundingClientRect().top - m.getBoundingClientRect().top));
+      detailsAnchorRef.current = el;
+    }
+    setDetailsIdx(idx);
+  };
 
   // resultatet forsvant (nytt spinn/modusbytte) → lukk popupen
   useEffect(() => {
-    if (!canOpenDetails) setShowDetails(false);
-  }, [canOpenDetails]);
+    if (detailsIdx !== null && !(picks[detailsIdx] && !spinning)) setDetailsIdx(null);
+  }, [detailsIdx, picks, spinning]);
 
   return (
     <div className="page" style={{
@@ -919,7 +878,7 @@ export default function Videokisen() {
           Maskinen har FAST høyde: flip-lister, statuslinje og display
           er faste; detaljer og undo bor i popup/toast.
           ───────────────────────────────────────────────────────── */}
-      <main className="machine" style={{
+      <main className="machine" ref={machineRef} style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
         border: `1px solid ${PANEL_LO}`,
         borderRadius: 8,
@@ -1030,52 +989,45 @@ export default function Videokisen() {
         {/* Display */}
         <div style={{ padding: "6px 18px 4px" }}>
           {isDuel && bothLoaded && (canSpin || duelLanded) ? (
-            <div>
-              <div className="duel">
-                <DuelWindow
-                  label={a.person} accent={ORANGE} film={displays[0]}
-                  info={detailsFor(picks[0])} rolling={spinning}
-                  isWinner={winner === 0} isLoser={winner === 1}
-                  flashing={flash === 0}
-                />
-                <div className="duel-vs" aria-hidden="true" style={{
-                  alignSelf: "center", flexShrink: 0,
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: fate ? RED : INK, color: "#F5F3EC",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em",
-                  boxShadow: "0 2px 0 rgba(0,0,0,0.2)",
-                }}>
-                  {fate ? "=" : "VS"}
-                </div>
-                <DuelWindow
-                  label={b.person} accent={BLUE} film={displays[1]}
-                  info={detailsFor(picks[1])} rolling={spinning}
-                  isWinner={winner === 1} isLoser={winner === 0}
-                  flashing={flash === 1}
-                />
+            <div className="duel">
+              <DuelWindow
+                label={a.person} accent={ORANGE} film={displays[0]}
+                spinning={spinning} spinKey={spinKey} landed={!!picks[0] && !spinning}
+                delay={0} onSettle={() => onDuelSettle(0)}
+                isWinner={winner === 0} isLoser={winner === 1}
+                flashing={flash === 0}
+                canOpen={canOpen(0)} onOpen={openDetails(0)}
+              />
+              <div className="duel-vs" aria-hidden="true" style={{
+                alignSelf: "center", flexShrink: 0,
+                width: 34, height: 34, borderRadius: "50%",
+                background: fate ? RED : INK, color: "#F5F3EC",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em",
+                boxShadow: "0 2px 0 rgba(0,0,0,0.2)",
+              }}>
+                {fate ? "=" : "VS"}
               </div>
-              {fate && (
-                <div className="settled" style={{
-                  textAlign: "center", fontFamily: MONO, fontSize: 11.5, color: RED,
-                  letterSpacing: "0.14em", marginTop: 10, fontWeight: 700,
-                }}>
-                  FATE · SAME FILM ON BOTH LISTS
-                </div>
-              )}
+              <DuelWindow
+                label={b.person} accent={BLUE} film={displays[1]}
+                spinning={spinning} spinKey={spinKey} landed={!!picks[1] && !spinning}
+                delay={520} onSettle={() => onDuelSettle(1)}
+                isWinner={winner === 1} isLoser={winner === 0}
+                flashing={flash === 1}
+                canOpen={canOpen(1)} onOpen={openDetails(1)}
+              />
             </div>
           ) : (
             <div
               className="display-module"
-              ref={displayRef}
               /* landet display = knapp som åpner filmdetaljene */
               {...(canOpenDetails ? {
                 role: "button",
                 tabIndex: 0,
                 "aria-label": `Details for ${picks[0].name}`,
-                onClick: () => setShowDetails(true),
+                onClick: openDetails(0),
                 onKeyDown: (e) => {
-                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowDetails(true); }
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetails(0)(e); }
                 },
               } : {})}
               style={{
@@ -1136,10 +1088,24 @@ export default function Videokisen() {
 
         {/* Kontroller */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 18px 20px" }}>
-          {duelLanded && !fate && winner === null && (
-            <Key color="ink" onClick={decide} disabled={deciding} capStyle={{ fontSize: 12, letterSpacing: "0.16em", minHeight: 38 }}>
-              {deciding ? "DECIDING…" : "LET THE MACHINE DECIDE"}
-            </Key>
+          {isDuel && bothLoaded && (
+            fate ? (
+              <div className="settled" style={{
+                display: "flex", alignItems: "center", justifyContent: "center", minHeight: 44,
+                fontFamily: MONO, fontSize: 11.5, color: RED, letterSpacing: "0.14em", fontWeight: 700,
+              }}>
+                FATE · SAME FILM ON BOTH LISTS
+              </div>
+            ) : (
+              <Key
+                color="ink"
+                onClick={decide}
+                disabled={deciding || !(duelLanded && winner === null)}
+                capStyle={{ fontSize: 12, letterSpacing: "0.16em", minHeight: 38 }}
+              >
+                {deciding ? "DECIDING…" : "LET THE MACHINE DECIDE"}
+              </Key>
+            )
           )}
 
           <div className="ctrl-grid">
@@ -1221,28 +1187,36 @@ export default function Videokisen() {
           </div>
         )}
 
-        {/* Filmdetalj-popup — åpnes fra displayet */}
-        {showDetails && canOpenDetails && (
+        {/* Filmdetalj-popup — forankret over feltet som ble klikket */}
+        {detailsIdx !== null && picks[detailsIdx] && (
           <div
             className="overlay settled"
             role="dialog"
             aria-modal="true"
-            aria-label={`Details for ${picks[0].name}`}
-            onClick={(e) => { if (e.target === e.currentTarget) setShowDetails(false); }}
+            aria-label={`Details for ${picks[detailsIdx].name}`}
+            onClick={(e) => { if (e.target === e.currentTarget) setDetailsIdx(null); }}
           >
-            <div className="overlay-card">
+            <div className="overlay-card" style={{
+              position: "absolute",
+              top: detailsTop,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "calc(100% - 36px)",
+              maxHeight: `calc(100% - ${detailsTop + 14}px)`,
+              overflowY: "auto",
+            }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
                 <span style={{ minWidth: 0, fontFamily: GROTESK, fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
-                  {picks[0].name}
+                  {picks[detailsIdx].name}
                 </span>
-                <Key small color="white" ref={detailsCloseRef} onClick={() => setShowDetails(false)} aria-label="Close">
+                <Key small color="white" ref={detailsCloseRef} onClick={() => setDetailsIdx(null)} aria-label="Close">
                   ✕
                 </Key>
               </div>
               <DetailsBody
-                film={picks[0]}
-                info={detailsFor(picks[0])}
-                whose={bothLoaded ? whose(picks[0]) : null}
+                film={picks[detailsIdx]}
+                info={detailsFor(picks[detailsIdx])}
+                whose={!isDuel && bothLoaded ? whose(picks[detailsIdx]) : null}
               />
             </div>
           </div>

@@ -181,6 +181,44 @@ input:focus-visible,
   display: flex;
   gap: 10px;
 }
+
+/* ── bunnraden: 4-kolonners grid (se GRID-REGLER i App.jsx) ──── */
+.ctrl-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ctrl-spin { grid-column: 1 / 3; }
+.ctrl-seen { grid-column: 3; }
+.ctrl-norepeat { grid-column: 4; min-width: 0; }
+@media (max-width: 519px) {
+  .ctrl-spin { grid-column: 1 / -1; }
+  .ctrl-seen { grid-column: 1 / 3; }
+  .ctrl-norepeat { grid-column: 3 / -1; }
+}
+
+/* ── onboarding-overlay ──────────────────────────────────────── */
+.help {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(221, 218, 210, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 18px 18px;
+}
+.help-card {
+  width: 100%;
+  max-width: 420px;
+  background: #e9e7e0;
+  border: 1px solid #c9c6bd;
+  border-radius: 6px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 14px 34px -18px rgba(0, 0, 0, 0.5);
+}
 .duel {
   align-items: stretch;
 }
@@ -313,10 +351,46 @@ input:focus-visible,
    skall over, nedsenket display, taktile kontroller.
    ══════════════════════════════════════════════════════════════ */
 
-/* PCB-lag: svakt synlige kobberspor bak alt, lett ute av fokus */
+/* skallet: frostet, halvgjennomsiktig plast — dot-griden skimtes gjennom */
+.machine {
+  background: #dddad2;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .machine {
+    background: rgba(221, 218, 210, 0.82);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* lys som diffunderer i plasten: varmt bak Spin-sonen, kjølig øverst */
+.light-blob {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(40px);
+}
+.light-blob.warm {
+  left: 8%;
+  bottom: -50px;
+  width: 340px;
+  height: 220px;
+  background: rgba(221, 81, 23, 0.1);
+}
+.light-blob.cool {
+  right: -60px;
+  top: -70px;
+  width: 320px;
+  height: 250px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+/* koblingslag: kobberspor mellom feltene, bak frosten */
 .pcb {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   opacity: 0.12;
   mix-blend-mode: multiply;

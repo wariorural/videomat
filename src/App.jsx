@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from "react";
 import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, safeUri, FETCH_ERRORS } from "./lib/letterboxd.js";
 import { loadState, saveState } from "./lib/storage.js";
 import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
@@ -56,12 +56,12 @@ const ghostBtn = {
 };
 
 function Dot({ c }) {
-  return <span style={{ width: 9, height: 9, borderRadius: "50%", background: c, display: "inline-block", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.25)" }} />;
+  return <span style={{ width: 9, height: 9, borderRadius: 1, background: c, display: "inline-block", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.25)" }} />;
 }
 
 /* ── liste-slot: brukernavn primært, CSV som fallback ─────────── */
 
-function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
+function UploadSlot({ side, node, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
   const fileRef = useRef(null);
   const [drag, setDrag] = useState(false);
   const [uname, setUname] = useState(slot.username || "");
@@ -74,21 +74,26 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
 
   return (
     <div
+      data-node={node}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
       style={{
         flex: 1,
         border: `1.5px solid ${loaded ? accent : "rgba(28,27,25,0.22)"}`,
-        background: drag ? PANEL_HI : "transparent",
+        background: drag ? PANEL_HI : "rgba(28,27,25,0.035)",
         borderRadius: 4,
         padding: "12px 12px 11px",
-        transition: "background 120ms, border-color 120ms",
+        transition: "background 120ms, border-color 120ms, box-shadow 120ms",
         minWidth: 0,
+        /* nedsenket i skallet; lastet liste lyser svakt i sporet rundt */
+        boxShadow: loaded
+          ? `inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5), 0 0 12px -2px ${accent}`
+          : "inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ width: 9, height: 9, borderRadius: "50%", background: accent, display: "inline-block", flexShrink: 0 }} />
+        <span style={{ width: 9, height: 9, borderRadius: 1, background: accent, display: "inline-block", flexShrink: 0 }} />
         <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.16em", color: DIM, textTransform: "uppercase" }}>
           {side}
         </span>
@@ -279,7 +284,7 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
             </span>
           ) : (
             <>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />
+              <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
               <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: D_LABEL, textTransform: "uppercase" }}>
                 {label}
               </span>
@@ -306,7 +311,7 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
         )
       ) : (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: D_LABEL, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />
+          <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
           {label}
         </span>
       )}
@@ -316,32 +321,96 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
 
 /* ── kobber/PCB-lag: svakt synlige kretskort-spor bak alt ─────── */
 
-function PcbLayer() {
+/* ── kretskortet viser SIGNALVEIEN: List A/B → display → modus → Spin.
+   Sporene måles mot de faktiske panelene og rutes med 45°-avfasede
+   knekk (ekte PCB-ruting). Tegnes om når maskinen endrer størrelse
+   (detaljstripe, undo-bar, brytepunkt). ────────────────────────── */
+
+function routeDown(x0, y0, x1, y1, c = 6) {
+  // ortogonal rute med 45°-avfasing der den svinger sidelengs
+  if (Math.abs(x1 - x0) < 2 * c) return `M ${x0} ${y0} L ${x1} ${y1}`;
+  const ym = (y0 + y1) / 2;
+  const dir = x1 > x0 ? 1 : -1;
+  return [
+    `M ${x0} ${y0}`,
+    `L ${x0} ${ym - c}`,
+    `L ${x0 + c * dir} ${ym}`,
+    `L ${x1 - c * dir} ${ym}`,
+    `L ${x1} ${ym + c}`,
+    `L ${x1} ${y1}`,
+  ].join(" ");
+}
+
+function CircuitLayer() {
+  const ref = useRef(null);
+  const [net, setNet] = useState(null);
+
+  useLayoutEffect(() => {
+    const svg = ref.current;
+    if (!svg) return;
+    const root = svg.parentElement;
+
+    const draw = () => {
+      const r0 = root.getBoundingClientRect();
+      const box = (sel) => {
+        const el = root.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left - r0.left, y: r.top - r0.top, w: r.width, h: r.height };
+      };
+      const la = box('[data-node="lista"]');
+      const lb = box('[data-node="listb"]');
+      const disp = box(".display-module") || box(".duel");
+      const modes = box(".modes");
+      const spin = box(".ctrl-spin");
+      if (!la || !lb || !disp || !modes || !spin) { setNet(null); return; }
+
+      const lines = [
+        routeDown(la.x + la.w * 0.5, la.y + la.h, disp.x + disp.w * 0.3, disp.y),
+        routeDown(lb.x + lb.w * 0.5, lb.y + lb.h, disp.x + disp.w * 0.7, disp.y),
+        routeDown(disp.x + disp.w * 0.5, disp.y + disp.h, modes.x + modes.w * 0.5, modes.y),
+        routeDown(modes.x + modes.w * 0.5, modes.y + modes.h, spin.x + spin.w * 0.5, spin.y),
+      ];
+      const vias = [
+        { x: la.x + la.w * 0.5, y: la.y + la.h },
+        { x: lb.x + lb.w * 0.5, y: lb.y + lb.h },
+        { x: disp.x + disp.w * 0.5, y: disp.y + disp.h },
+        { x: spin.x + spin.w * 0.5, y: spin.y },
+      ];
+      // SMD-pad-par ved display-inngangene
+      const pads = [
+        { x: disp.x + disp.w * 0.3 - 9, y: disp.y - 14 },
+        { x: disp.x + disp.w * 0.3 + 4, y: disp.y - 14 },
+        { x: disp.x + disp.w * 0.7 - 9, y: disp.y - 14 },
+        { x: disp.x + disp.w * 0.7 + 4, y: disp.y - 14 },
+      ];
+      setNet({ w: r0.width, h: r0.height, lines, vias, pads });
+    };
+
+    draw();
+    const ro = new ResizeObserver(draw);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <svg className="pcb" viewBox="0 0 200 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      {/* spor rutet som ekte PCB: 45°-knekk, aldri rette hjørner */}
-      <g fill="none" stroke="#b0742f" strokeWidth="1.2">
-        <path d="M12 24 H58 L70 36 V52 L78 60 H120" />
-        <path d="M188 40 H158 L150 48 V88 L142 96 H96" />
-        <path d="M20 120 H70 L80 130 V150" />
-        <path d="M180 150 H120 L110 140 V120" />
-        <path d="M12 210 H50 L60 220 V240 L70 250 H130 L140 240 V220 L150 210 H188" />
-        <path d="M30 288 V240 L40 230 H90" />
-        <path d="M100 12 V36 L108 44" />
-        <path d="M150 300 V270 L160 260 H188" />
-      </g>
-      {/* vias */}
-      <g fill="#c08a4a">
-        <circle cx="120" cy="60" r="2.6" /><circle cx="96" cy="96" r="2.6" />
-        <circle cx="80" cy="150" r="2.6" /><circle cx="110" cy="120" r="2.6" />
-        <circle cx="90" cy="230" r="2.6" /><circle cx="108" cy="44" r="2.6" />
-      </g>
-      {/* SMD-pad-par (små komponentfotavtrykk) */}
-      <g fill="#c08a4a">
-        <rect x="98" y="134" width="5" height="7" rx="0.8" /><rect x="107" y="134" width="5" height="7" rx="0.8" />
-        <rect x="160" y="146" width="7" height="5" rx="0.8" /><rect x="160" y="155" width="7" height="5" rx="0.8" />
-        <rect x="24" y="252" width="5" height="7" rx="0.8" /><rect x="33" y="252" width="5" height="7" rx="0.8" />
-      </g>
+    <svg
+      ref={ref}
+      className="pcb"
+      aria-hidden="true"
+      {...(net ? { viewBox: `0 0 ${net.w} ${net.h}` } : {})}
+    >
+      {net && (
+        <>
+          <g fill="none" stroke="#b0742f" strokeWidth="1.4">
+            {net.lines.map((d, i) => <path key={i} d={d} />)}
+          </g>
+          <g fill="#c08a4a">
+            {net.vias.map((v, i) => <circle key={i} cx={v.x} cy={v.y} r="2.6" />)}
+            {net.pads.map((p, i) => <rect key={i} x={p.x} y={p.y} width="5" height="7" rx="0.8" />)}
+          </g>
+        </>
+      )}
     </svg>
   );
 }
@@ -380,7 +449,7 @@ function SingleDetails({ film, info, whose }) {
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 9, flexWrap: "wrap" }}>
           {whose && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: DIM }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: whose.color }} />
+              <span style={{ width: 8, height: 8, borderRadius: 1, background: whose.color }} />
               {whose.label}
             </span>
           )}
@@ -415,6 +484,9 @@ export default function Videokisen() {
   const [spinning, setSpinning] = useState(false);
   const [spinKey, setSpinKey] = useState(0);   // bumpes per spinn → trigger flap-flutter
   const pendingTarget = useRef(null);           // filmen flappene lander på (enkeltmodus)
+  const [showHelp, setShowHelp] = useState(false);
+  const helpBtnRef = useRef(null);
+  const helpCloseRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
@@ -434,6 +506,18 @@ export default function Videokisen() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => { setSoundEnabled(soundOn); }, [soundOn]);
+
+  // onboarding-overlay: Escape lukker, fokus flyttes inn og tilbake
+  useEffect(() => {
+    if (!showHelp) return;
+    helpCloseRef.current?.focus();
+    const onKey = (e) => { if (e.key === "Escape") setShowHelp(false); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      helpBtnRef.current?.focus();
+    };
+  }, [showHelp]);
 
   // hent plakat + fakta for filmene hjulet har landet på (én gang per film)
   useEffect(() => {
@@ -730,17 +814,26 @@ export default function Videokisen() {
       fontFamily: GROTESK, color: INK,
       display: "flex", justifyContent: "center",
     }}>
-      <main style={{
+      {/* ── GRID-REGLER ─────────────────────────────────────────────
+          Indre bredde W = 560 − 2×18. Gutter = 10px overalt.
+          2 kolonner: List A/B (.slots) og duel-vinduene (.duel)
+          3 kolonner: modus-kortene (.modes)
+          4 kolonner: bunnraden (.ctrl-grid) — Spin spenner 2 (= 2-kol-
+          linja), Seen it i kol 3, no repeats i kol 4. Posisjonene er
+          faste så ingenting hopper når Seen it kommer og går.
+          ───────────────────────────────────────────────────────── */}
+      <main className="machine" style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
-        background: PANEL,
         border: `1px solid ${PANEL_LO}`,
         borderRadius: 8,
         boxShadow: "0 1px 0 rgba(255,255,255,0.5) inset, 0 18px 40px -22px rgba(0,0,0,0.55)",
         overflow: "hidden",
         position: "relative",
       }}>
-        {/* clear-tech-lag: PCB bakerst → frostet skall → gloss */}
-        <PcbLayer />
+        {/* clear-tech-lag: koblinger bakerst → lysdiffusjon → frost → gloss */}
+        <CircuitLayer />
+        <div className="light-blob warm" aria-hidden="true" />
+        <div className="light-blob cool" aria-hidden="true" />
         <div className="frost" />
         <div className="machine-gloss" />
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -762,6 +855,16 @@ export default function Videokisen() {
               <Dot c={ORANGE} /><Dot c={GREEN} /><Dot c={BLUE} />
             </div>
             <span className={`led${spinning || deciding ? " on" : ""}`} aria-hidden="true" />
+            <button
+              ref={helpBtnRef}
+              className="press"
+              onClick={() => setShowHelp(true)}
+              aria-expanded={showHelp}
+              aria-label="How it works"
+              style={{ ...ghostBtn, fontFamily: DOT, fontWeight: 900, fontSize: 13, padding: "7px 11px", minHeight: 30 }}
+            >
+              ?
+            </button>
             <button
               className="press"
               onClick={() => setSoundOn(!soundOn)}
@@ -787,13 +890,13 @@ export default function Videokisen() {
         {/* Innmating */}
         <div className="slots" style={{ padding: "14px 18px" }}>
           <UploadSlot
-            side="List A" slot={a} accent={ORANGE}
+            side="List A" node="lista" slot={a} accent={ORANGE}
             fetching={fetching.a} error={errors.a}
             onFile={loadInto("a")} onFetch={fetchInto("a")}
             onPersonChange={setPerson("a")} onClear={clearSlot("a")}
           />
           <UploadSlot
-            side="List B" slot={b} accent={BLUE} optional
+            side="List B" node="listb" slot={b} accent={BLUE} optional
             fetching={fetching.b} error={errors.b}
             onFile={loadInto("b")} onFetch={fetchInto("b")}
             onPersonChange={setPerson("b")} onClear={clearSlot("b")}
@@ -911,7 +1014,7 @@ export default function Videokisen() {
         </div>
 
         {/* Modus */}
-        <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 8, padding: "14px 18px 6px" }}>
+        <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 10, padding: "14px 18px 6px" }}>
           {MODES.map((m) => {
             const on = mode === m.id;
             return (
@@ -926,7 +1029,7 @@ export default function Videokisen() {
                   textAlign: "left", transition: "background 120ms", minWidth: 0,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
+                  <span style={{ width: 7, height: 7, borderRadius: 1, background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
                   <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: on ? "#F5F3EC" : INK }}>{m.label}</span>
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: on ? D_HI : DIM, marginTop: 3, paddingLeft: 13 }}>{m.sub}</div>
@@ -965,13 +1068,13 @@ export default function Videokisen() {
             </button>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="ctrl-grid">
             <button
-              className="press"
+              className="press ctrl-spin"
               onClick={spin}
               disabled={spinning || deciding || !canSpin}
               style={{
-                flex: 1, cursor: spinning || deciding || !canSpin ? "default" : "pointer",
+                cursor: spinning || deciding || !canSpin ? "default" : "pointer",
                 background: !canSpin ? PANEL_LO : RED,
                 color: !canSpin ? DIM : "#fff",
                 border: "none", borderRadius: 7, padding: "16px 20px",
@@ -982,13 +1085,19 @@ export default function Videokisen() {
             </button>
 
             {chosenFilm && !spinning && !deciding && (
-              <button className="press" onClick={markWatched} style={{ ...ghostBtn, padding: "13px 14px", fontSize: 11 }}>
-                seen it ✓
+              <button className="press ctrl-seen" onClick={markWatched} style={{
+                cursor: "pointer",
+                background: INK, color: "#F5F3EC",
+                border: "none", borderRadius: 7, padding: "12px 8px",
+                fontFamily: GROTESK, fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
+                boxShadow: "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.14) inset",
+              }}>
+                Seen it ✓
               </button>
             )}
 
             <button
-              className="press toggle"
+              className="press toggle ctrl-norepeat"
               role="switch"
               aria-checked={noRepeat}
               aria-label="No repeats"
@@ -1000,6 +1109,59 @@ export default function Videokisen() {
           </div>
         </div>
         </div>
+
+        {/* Onboarding-overlay */}
+        {showHelp && (
+          <div
+            className="help settled"
+            role="dialog"
+            aria-modal="true"
+            aria-label="How it works"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowHelp(false); }}
+          >
+            <div className="help-card">
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.14em", color: DIM }}>
+                  HOW IT WORKS
+                </span>
+                <button
+                  ref={helpCloseRef}
+                  className="press"
+                  onClick={() => setShowHelp(false)}
+                  aria-label="Close"
+                  style={{ ...ghostBtn, padding: "5px 10px", minHeight: 28 }}
+                >
+                  ✕
+                </button>
+              </div>
+              <ol style={{ margin: "14px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  ["1", "Fetch your Letterboxd watchlist by username — or upload the CSV export."],
+                  ["2", "Add a friend's list to unlock Movie night & Duel."],
+                  ["3", "Spin. The machine decides — no second-guessing."],
+                ].map(([n, t]) => (
+                  <li key={n} style={{ display: "flex", gap: 10, fontFamily: GROTESK, fontSize: 13.5, lineHeight: 1.5, color: INK }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: DIM, flexShrink: 0, paddingTop: 1 }}>{n}</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ol>
+              <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${PANEL_LO}`, display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  [INK, "Roulette", "one film from everything you've loaded"],
+                  [GREEN, "Movie night", "only films on both lists"],
+                  [RED, "Duel", "one from each list — the machine breaks the tie"],
+                ].map(([c, name, desc]) => (
+                  <div key={name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: GROTESK, fontSize: 13, color: INK }}>
+                    <span style={{ width: 7, height: 7, borderRadius: 1, background: c, flexShrink: 0, alignSelf: "center" }} />
+                    <b style={{ fontWeight: 600 }}>{name}</b>
+                    <span style={{ color: DIM, fontSize: 12.5 }}>{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

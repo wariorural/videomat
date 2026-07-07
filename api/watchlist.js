@@ -45,26 +45,11 @@ function fetchPage(user, page) {
   });
 }
 
-/* Best-effort rate limit. In-memory per lambda-instans (ikke delt på tvers av
-   Vercels instanser), men bremser den mest åpenbare misbruken — én klient som
-   hamrer /api/watchlist for å bruke funksjonen som gratis skrape-proxy. For
-   hard garanti trengs en delt teller (Upstash/Edge Config). */
-const HITS = new Map(); // ip -> [tidsstempler]
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 12;
-
-function rateLimited(ip) {
-  const now = Date.now();
-  const recent = (HITS.get(ip) || []).filter((t) => now - t < WINDOW_MS);
-  recent.push(now);
-  HITS.set(ip, recent);
-  if (HITS.size > 5000) HITS.clear(); // enkel opprydding mot minnevekst
-  return recent.length > MAX_PER_WINDOW;
-}
+import { rateLimited, clientIp } from "./_ratelimit.js";
 
 export default async function handler(req, res) {
-  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  if (rateLimited(ip)) {
+  const ip = clientIp(req);
+  if (rateLimited(`wl:${ip}`)) {
     res.setHeader("Retry-After", "60");
     res.status(429).json({ error: "rate_limited" });
     return;

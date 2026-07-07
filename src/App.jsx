@@ -42,6 +42,8 @@ const EMPTY_SLOT = { films: [], filename: "", username: "", total: 0 };
 
 const saved = loadState();
 
+const films = (n) => (n === 1 ? "film" : "films");
+
 function buzz(pattern) {
   try {
     if (navigator.vibrate) navigator.vibrate(pattern);
@@ -135,7 +137,7 @@ function IconFile() {
    knapp (flipper); baksiden har input/FETCH/CSV eller rename/
    REFRESH/CHANGE. Flipper selv tilbake etter vellykket lasting. */
 
-function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
+function FlipSlot({ side, node, slot, accent, optional, attn, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
   const fileRef = useRef(null);
   const inputRef = useRef(null);
   const [drag, setDrag] = useState(false);
@@ -161,6 +163,7 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
     }
   }, [flipped]);
 
+  // delvis lasting er informasjon, ikke feil — kun `error` skal være rød
   const status = error
     ? error
     : slot.total > slot.films.length
@@ -169,7 +172,7 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
 
   return (
     <div
-      className={`flip${flipped ? " flipped" : ""}`}
+      className={`flip${flipped ? " flipped" : ""}${attn ? " attn" : ""}`}
       data-node={node}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
@@ -181,7 +184,9 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
           className="flip-face press"
           onClick={() => setFlipped(true)}
           aria-expanded={flipped}
-          aria-label={`${side} — edit`}
+          aria-label={loaded
+            ? `${side}: ${slot.person}, ${slot.films.length} ${films(slot.films.length)} — edit`
+            : `${side}: ${optional ? "add a friend's list" : "add your watchlist"}`}
           tabIndex={flipped ? -1 : 0}
           style={{
             display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center",
@@ -205,13 +210,13 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
                 <span style={{ display: "block", fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {slot.person}
                 </span>
-                <span style={{ display: "block", fontFamily: MONO, fontSize: 11.5, color: status ? ERROR : DIM, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {status || `${slot.films.length} films`}
+                <span style={{ display: "block", fontFamily: MONO, fontSize: 11.5, color: error ? ERROR : DIM, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {status || `${slot.films.length} ${films(slot.films.length)}`}
                 </span>
               </>
             ) : (
-              <span style={{ display: "block", fontFamily: MONO, fontSize: 12, color: status ? ERROR : DIM, lineHeight: 1.4 }}>
-                {status || (optional ? "add a friend's list" : "add your watchlist")}
+              <span style={{ display: "block", fontFamily: MONO, fontSize: 12, color: error ? ERROR : DIM, lineHeight: 1.4 }}>
+                {status || (optional ? "+ add a friend's list" : "+ add your watchlist")}
               </span>
             )}
           </span>
@@ -257,7 +262,7 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
                 )}
                 <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }} aria-label="Change list" title="Change list"><IconSwap /></Key>
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: status ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span role={error ? "alert" : undefined} style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {status || (slot.username ? `@${slot.username}` : slot.filename)}
               </span>
             </>
@@ -288,8 +293,8 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
                 }}
               />
               <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }} aria-label="Fetch watchlist" title="Fetch watchlist">
-                  {fetching ? "…" : <IconFetch />}
+                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>
+                  {fetching ? "…" : "fetch"}
                 </Key>
                 <Key small color="white" type="button" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1} aria-label="Upload watchlist.csv" title="Upload watchlist.csv"><IconFile /></Key>
                 <Key small color="white" type="button" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
@@ -581,7 +586,13 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
           )}
           {film.uri && (
             <a href={film.uri} target="_blank" rel="noreferrer" tabIndex={flipped ? 0 : -1}
-              style={{ fontFamily: MONO, fontSize: 10.5, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
+              style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, color: INK,
+                textDecoration: "underline", textDecorationColor: BLUE,
+                textDecorationThickness: 2, textUnderlineOffset: 3,
+                /* 44px treffflate uten å flytte layout */
+                padding: "12px 2px", margin: "-12px -2px",
+              }}>
               Letterboxd ↗
             </a>
           )}
@@ -615,6 +626,8 @@ export default function Videokisen() {
   const helpBtnRef = useRef(null);
   const helpCloseRef = useRef(null);
   const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film snudd til detaljer, null = lukket
+  const [lockHint, setLockHint] = useState(false);    // klikk på låst modus → forklaring i displayet
+  const lockHintTimer = useRef(null);
   const detailsAnchorRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
@@ -634,6 +647,7 @@ export default function Videokisen() {
   );
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => () => clearTimeout(lockHintTimer.current), []);
   useEffect(() => { setSoundEnabled(soundOn); }, [soundOn]);
 
   // onboarding-overlay: Escape lukker, fokus flyttes inn og tilbake
@@ -673,7 +687,9 @@ export default function Videokisen() {
       fetchFilmDetails(f.uri)
         .then((info) => setDetails((d) => ({ ...d, [k]: info })))
         .catch(() => {
-          /* uten detaljer viser vinduet bare tittel + år — helt ok */
+          /* transient feil skal ikke sperre filmen resten av økta —
+             neste landing på samme film prøver igjen */
+          requestedDetails.current.delete(k);
         });
     });
   }, [picks, spinning]);
@@ -930,7 +946,15 @@ export default function Videokisen() {
       ? "ADD A SECOND LIST FOR THIS MODE"
       : mode === "date" && overlap.length === 0
         ? "NO SHARED FILMS — TRY ROULETTE"
-        : "EVERYTHING’S BEEN SEEN — RESET?";
+        : "EVERYTHING’S BEEN SEEN";
+
+  // alt i poolen er markert sett → Spin blir en reset-tast (displayteksten
+  // «EVERYTHING'S BEEN SEEN» pekte før på en liten lenke et helt annet sted)
+  const exhausted =
+    noRepeat && excluded.size > 0 && !canSpin &&
+    (isDuel
+      ? bothLoaded && (poolA.length === 0 || poolB.length === 0)
+      : (mode === "date" ? overlap : union).length > 0 && poolSingle.length === 0 && (mode !== "date" || bothLoaded));
 
   const shown = displays[0] || picks[0];
   const landed = picks[0] && !spinning;
@@ -977,7 +1001,7 @@ export default function Videokisen() {
         <div className="light-blob cool" aria-hidden="true" />
         <div className="frost" />
         <div className="machine-gloss" />
-        <div style={{ position: "relative", zIndex: 1 }}>
+        <div style={{ position: "relative", zIndex: 1 }} inert={showHelp || undefined}>
         {/* Topplinje */}
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1023,14 +1047,16 @@ export default function Videokisen() {
             onPersonChange={setPerson("a")} onClear={clearSlot("a")}
           />
           <FlipSlot
-            side="List B" node="listb" slot={b} accent={BLUE} optional
+            side="List B" node="listb" slot={b} accent={BLUE} optional attn={lockHint && b.films.length === 0}
             fetching={fetching.b} error={errors.b}
             onFile={loadInto("b")} onFetch={fetchInto("b")}
             onPersonChange={setPerson("b")} onClear={clearSlot("b")}
           />
         </div>
 
-        {/* Modus — tre taster i Letterboxd-fargene */}
+        {/* Modus — tre taster i Letterboxd-fargene. Låste taster er
+            fortsatt klikkbare (aria-disabled, ikke disabled) og forklarer
+            seg i displayet i stedet for å være stumme. */}
         <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 10, padding: "12px 18px 0" }}>
           {MODES.map((m) => {
             const on = mode === m.id;
@@ -1041,8 +1067,15 @@ export default function Videokisen() {
                 color={m.color}
                 on={on}
                 aria-pressed={on}
-                disabled={lockedMode}
-                onClick={() => switchMode(m.id)}
+                aria-disabled={lockedMode || undefined}
+                className={lockedMode ? "locked" : ""}
+                title={lockedMode ? "Add List B to unlock" : undefined}
+                onClick={() => {
+                  if (!lockedMode) { switchMode(m.id); return; }
+                  setLockHint(true);
+                  clearTimeout(lockHintTimer.current);
+                  lockHintTimer.current = setTimeout(() => setLockHint(false), 2600);
+                }}
                 style={{ flex: 1 }}
                 capStyle={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 700, letterSpacing: "0.01em", textTransform: "none" }}
               >
@@ -1060,7 +1093,7 @@ export default function Videokisen() {
           {oneLoaded && (
             <>
               {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
-              <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : "films"}</span>
+              <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : films(union.length)}</span>
               {noRepeat && excluded.size > 0 && (
                 <span>
                   <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
@@ -1129,7 +1162,11 @@ export default function Videokisen() {
                   cursor: canOpenDetails ? "pointer" : "default",
                 }}
               >
-              {!canSpin && !shown ? (
+              {lockHint ? (
+                <span role="status" style={{ position: "relative", zIndex: 1, color: D_HI, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                  ADD LIST B TO UNLOCK
+                </span>
+              ) : !canSpin && !shown ? (
                 <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
                   {emptyText}
                 </span>
@@ -1216,11 +1253,11 @@ export default function Videokisen() {
             <Key
               color="orange"
               className="ctrl-spin"
-              onClick={spin}
-              disabled={spinning || deciding || !canSpin}
+              onClick={exhausted ? resetExcluded : spin}
+              disabled={spinning || deciding || (!canSpin && !exhausted)}
               capStyle={{ fontFamily: GROTESK, fontSize: 17, fontWeight: 700, letterSpacing: "0.01em", textTransform: "none", minHeight: 40 }}
             >
-              {spinning ? "spinning…" : picks[0] ? "Spin again" : "Spin"}
+              {spinning ? "spinning…" : exhausted ? "Reset seen" : picks[0] ? "Spin again" : "Spin"}
             </Key>
 
             {chosenFilm && !spinning && !deciding && (
@@ -1293,7 +1330,7 @@ export default function Videokisen() {
 
         {/* Undo-toast — flyter over bunnen, dytter ingenting */}
         {undo && (
-          <div className="toast settled" style={{
+          <div className="toast settled" role="status" style={{
             display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
             fontFamily: MONO, fontSize: 11, color: DIM,
             background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 5, padding: "8px 12px",

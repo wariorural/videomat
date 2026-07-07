@@ -34,7 +34,7 @@ function toLines(text) {
    øverst/nederst → sømmen går rett gjennom bokstaven). Ved bytte
    folder øvre halvdel av det GAMLE tegnet ned, så folder nedre
    halvdel av det NYE tegnet opp — den ekte Solari-mekanikken. */
-function Flap({ char }) {
+const Flap = React.memo(function Flap({ char }) {
   const [s, setS] = useState({ cur: char, prev: char, id: 0 });
   useEffect(() => {
     setS((p) => (p.cur === char ? p : { cur: char, prev: p.cur, id: p.id + 1 }));
@@ -62,14 +62,13 @@ function Flap({ char }) {
       <span className="flap-seam" aria-hidden="true" />
     </span>
   );
-}
+});
 
 export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSettle, compact = false, delay = 0 }) {
   const lines = useMemo(() => toLines(text), [text]);
   const [grid, setGrid] = useState(() => lines.map((l) => [...l]));
   const [scale, setScale] = useState(1);
 
-  const timers = useRef([]);
   const settled = useRef(false);
   const wrapRef = useRef(null);
   const rowRef = useRef(null);
@@ -95,12 +94,12 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
     return () => ro.disconnect();
   }, [lines]);
 
-  // flutter ved hver spinn (spinKey bumpes utenfra)
+  // flutter ved hver spinn (spinKey bumpes utenfra): ÉN rAF-driver som
+  // samler alle celleendringer i ett setGrid per takt — memoiserte Flap-kort
+  // gjør at kun celler som faktisk byttet tegn re-rendres
   useEffect(() => {
     if (!spinning) return;
     settled.current = false;
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
 
     const flat = [];
     lines.forEach((line, li) =>
@@ -108,43 +107,48 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
     );
 
     const CAD = 60, LEAD = 240 + delay, STAGGER = 62; // ms: takt, første landing, forsinkelse/kort
-    flat.forEach((cell, k) => {
-      const landing = LEAD + k * STAGGER;
-      const isSpace = cell.target === " ";
-      const count = isSpace ? 1 : Math.max(3, Math.round(landing / CAD));
-      for (let step = 1; step <= count; step++) {
-        const isLast = step === count;
-        const at = isLast ? landing : Math.min(step * CAD, landing - CAD * 0.5);
-        timers.current.push(
-          setTimeout(() => {
-            setGrid((g) => {
-              const n = g.map((r) => r.slice());
-              if (n[cell.li]) n[cell.li][cell.ci] = isLast ? cell.target : randChar();
-              return n;
-            });
-            flapClack();
-          }, at)
-        );
+    const landing = (k) => LEAD + k * STAGGER;
+    const total = landing(flat.length - 1) + 160;
+
+    const start = performance.now();
+    let lastTick = -CAD;
+    let raf;
+
+    const step = (now) => {
+      const t = now - start;
+      if (t >= total) {
+        setGrid(lines.map((l) => [...l]));
+        if (!settled.current) {
+          settled.current = true;
+          onSettle && onSettle();
+        }
+        return;
       }
-    });
+      if (t - lastTick >= CAD) {
+        lastTick = t;
+        let fluttering = false;
+        setGrid(() =>
+          lines.map((line, li) =>
+            [...line].map((ch, ci) => {
+              const k = flat.findIndex((c) => c.li === li && c.ci === ci);
+              if (ch === " " || t >= landing(k)) return ch;
+              fluttering = true;
+              return randChar();
+            })
+          )
+        );
+        if (fluttering) flapClack();
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
 
-    const total = LEAD + (flat.length - 1) * STAGGER + 160;
-    timers.current.push(
-      setTimeout(() => {
-        if (settled.current) return;
-        settled.current = true;
-        onSettle && onSettle();
-      }, total)
-    );
-
-    return () => timers.current.forEach(clearTimeout);
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinKey]);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
-
   return (
-    <div className={`flap-wrap${compact ? " flap-compact" : ""}${landed ? " landed" : ""}`} ref={wrapRef}>
+    <div className={`flap-wrap${compact ? " flap-compact" : ""}${landed ? " landed" : ""}`} ref={wrapRef} aria-hidden="true">
       <div className="flap-scaler" ref={rowRef} style={{ transform: `scale(${scale})` }}>
         {grid.map((row, li) => (
           <div className="flap-row" key={li}>

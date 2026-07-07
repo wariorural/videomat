@@ -7,6 +7,8 @@ const UA =
 
 const ALLOWED_HOSTS = ["letterboxd.com", "www.letterboxd.com", "boxd.it"];
 
+import { rateLimited, clientIp } from "./_ratelimit.js";
+
 function decodeEntities(s) {
   return s
     .replace(/&amp;/g, "&")
@@ -18,6 +20,14 @@ function decodeEntities(s) {
 }
 
 export default async function handler(req, res) {
+  // samme skrape-proxy-vern som /api/watchlist (30/min — én film per landing,
+  // men detaljer for en hel duell-runde + retries skal gå greit)
+  if (rateLimited(`film:${clientIp(req)}`, 30)) {
+    res.setHeader("Retry-After", "60");
+    res.status(429).json({ error: "rate_limited" });
+    return;
+  }
+
   let url;
   try {
     url = new URL(String(req.query.uri || ""));

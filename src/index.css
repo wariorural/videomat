@@ -89,7 +89,8 @@ input {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+[role="button"]:focus-visible {
   outline: 2px solid var(--red);
   outline-offset: 2px;
 }
@@ -98,7 +99,8 @@ input:focus-visible {
 .linkbtn {
   background: none;
   border: none;
-  padding: 2px 0;
+  padding: 12px 6px;
+  margin: -12px -6px;
   cursor: pointer;
   font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
   font-size: 11.5px;
@@ -115,6 +117,9 @@ input:focus-visible {
 }
 /* hover kun på ekte pekere (unngå falsk hover ved tap) */
 @media (hover: hover) and (pointer: fine) {
+  .flip:not(.flipped) .flip-face.press:hover {
+    background: #e9e7e0 !important; /* inline-bakgrunn må overstyres */
+  }
   .linkbtn:hover {
     color: #a8321a;
   }
@@ -168,6 +173,13 @@ input:focus-visible {
   box-shadow: 1px 1px 2px rgba(255, 255, 255, 0.55);
   min-width: 0;
 }
+/* usynlig utvidet treffflate — capene er ~30px, tommelen trenger ~44 */
+.key::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
 /* cap-fargen «reflekteres» i socket-veggene */
 .key::before {
   content: "";
@@ -181,6 +193,15 @@ input:focus-visible {
 .key:disabled {
   cursor: default;
   opacity: 0.4;
+}
+/* låst (aria-disabled): tydelig av, men klikk gir hint — så trykk-
+   animasjonen beholdes som ærlig feedback */
+.key.locked {
+  cursor: default;
+}
+.key.locked .cap {
+  filter: saturate(0.25);
+  opacity: 0.55;
 }
 .key .cap {
   position: relative;
@@ -264,13 +285,37 @@ input:focus-visible {
   }
 }
 
+/* «hit må du» — liste B pulserer når en låst modus klikkes */
+.flip.attn .flip-face {
+  animation: attn-pulse 1.3s ease-in-out 2;
+}
+@keyframes attn-pulse {
+  0%, 100% {
+    box-shadow: inset 0 1.5px 4px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: inset 0 1.5px 4px rgba(0, 0, 0, 0.18), 0 0 16px -1px #40bcf4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip.attn .flip-face {
+    animation: none;
+    box-shadow: inset 0 1.5px 4px rgba(0, 0, 0, 0.18), 0 0 16px -1px #40bcf4 !important;
+  }
+}
+
 /* ── undo-toast: flyter over bunnraden, null layout-skift ─────── */
 .toast {
   position: absolute;
   left: 18px;
   right: 18px;
-  bottom: 74px;
+  bottom: 84px;
   z-index: 4;
+}
+@media (max-width: 519px) {
+  .toast {
+    bottom: 140px; /* bunnen er to rader høy her — ikke dekk Spin */
+  }
 }
 
 /* ── delte overlays (onboarding + filmdetaljer) ─────────────── */

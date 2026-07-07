@@ -1,5 +1,5 @@
 /* GET /api/film?uri=<letterboxd.com/film/... eller boxd.it/...>
-   Henter filmsiden og svarer { poster, synopsis, director, rating, runtime, genres }.
+   Henter filmsiden og svarer { poster, synopsis, director, cast, rating, runtime, genres }.
    Zero API-nøkler: alt leses fra og:-metaene og JSON-LD-blokken. */
 
 const UA =
@@ -88,6 +88,8 @@ export default async function handler(req, res) {
     poster: ld?.image || meta("og:image") || "",
     synopsis: decodeEntities(meta("og:description") || ""),
     director: ld?.director?.[0]?.name || "",
+    // JSON-LD-feltet heter `actor` (entall) og står i kreditert rekkefølge
+    cast: (Array.isArray(ld?.actor) ? ld.actor : []).slice(0, 3).map((a) => a?.name).filter(Boolean),
     rating: ld?.aggregateRating?.ratingValue
       ? Math.round(ld.aggregateRating.ratingValue * 10) / 10
       : null,

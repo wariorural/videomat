@@ -213,15 +213,15 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
               </div>
               <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
                 {slot.username && (
-                  <Key small color="white" onClick={() => onFetch(slot.username)} disabled={fetching} tabIndex={flipped ? 0 : -1}>
+                  <Key small color="white" onClick={() => onFetch(slot.username)} disabled={fetching} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>
                     {fetching ? "…" : "refresh"}
                   </Key>
                 )}
-                <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1}>change</Key>
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10.5, color: status ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {status || (slot.username ? `@${slot.username}` : slot.filename)}
-                </span>
+                <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>change</Key>
               </div>
+              <span style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: status ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {status || (slot.username ? `@${slot.username}` : slot.filename)}
+              </span>
             </>
           ) : (
             <form
@@ -281,7 +281,7 @@ function DuelWindow({ label, accent, film, info, spinning, spinKey, landed, dela
   return (
     <div
       className={`flipbox duel-win${flipped ? " flipped" : ""}${flashing ? " flash" : ""}${isLoser ? " loser" : ""}${isWinner ? " winner" : ""}`}
-      style={{ flex: 1, minWidth: 0, height: 148, borderRadius: 6 }}
+      style={{ borderRadius: 6 }}
     >
       <div className="flip-inner">
         <div
@@ -494,15 +494,25 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
             <img
               src={info.poster} alt="" referrerPolicy="no-referrer" className="poster-fade"
               style={{
-                width: tight ? 46 : 76, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 3,
+                width: tight ? 56 : 88, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 3,
                 flexShrink: 0, background: "#cfccc3", boxShadow: "0 3px 10px -5px rgba(0,0,0,0.5)", alignSelf: "flex-start",
               }}
             />
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
-            {(facts || info?.director) && (
-              <div style={{ fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {[facts, info?.director ? `dir. ${info.director}` : null].filter(Boolean).join(" — ")}
+            {facts && (
+              <div style={{ fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {facts}
+              </div>
+            )}
+            {info?.director && (
+              <div style={{ fontFamily: MONO, fontSize: tight ? 10.5 : 11.5, fontWeight: 700, color: INK, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                dir. {info.director}
+              </div>
+            )}
+            {info?.cast?.length > 0 && (
+              <div style={{ fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {info.cast.join(" · ")}
               </div>
             )}
             {!tight && info?.genres?.length > 0 && (
@@ -512,8 +522,8 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
             )}
             {info?.synopsis && (
               <p style={{
-                margin: tight ? "3px 0 0" : "6px 0 0", fontFamily: GROTESK, fontSize: tight ? 11.5 : 12.5, lineHeight: 1.45, color: INK,
-                display: "-webkit-box", WebkitLineClamp: tight ? 3 : 5, WebkitBoxOrient: "vertical", overflow: "hidden",
+                margin: tight ? "4px 0 0" : "6px 0 0", fontFamily: GROTESK, fontSize: tight ? 11.5 : 12.5, lineHeight: 1.45, color: INK,
+                display: "-webkit-box", WebkitLineClamp: tight ? 4 : 6, WebkitBoxOrient: "vertical", overflow: "hidden",
               }}>
                 {info.synopsis}
               </p>
@@ -1056,7 +1066,7 @@ export default function Videokisen() {
             </div>
           ) : (
             /* FAST høyde — rommer to flap-linjer; «snur arket» til detaljer */
-            <div className={`flipbox${!isDuel && detailsIdx === 0 ? " flipped" : ""}`} style={{ height: 208 }}>
+            <div className={`flipbox${!isDuel && detailsIdx === 0 ? " flipped" : ""}`} style={{ height: 264 }}>
               <div className="flip-inner">
               <div className="flip-face">
               <div

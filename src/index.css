@@ -226,7 +226,7 @@ input:focus-visible {
 .flip {
   flex: 1;
   min-width: 0;
-  height: 104px;
+  height: 110px;
   perspective: 700px;
   position: relative;
 }
@@ -331,11 +331,20 @@ input:focus-visible {
   animation: settle 200ms var(--ease-out);
 }
 
-/* duell: highlight under tie-break + taper dimmes */
+/* duell: store sorte felt — fast høyde; flex-basis 0 gjelder KUN i
+   rad-retning (i kolonne <520px ville den nullet høyden) */
 .duel-win {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 200px;
   transition:
     box-shadow 80ms linear,
     opacity 240ms var(--ease-out);
+}
+@media (max-width: 519px) {
+  .duel-win {
+    flex: none;
+  }
 }
 .duel-win.flash {
   box-shadow:

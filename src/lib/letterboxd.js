@@ -58,7 +58,8 @@ export async function fetchWatchlist(username) {
 }
 
 export async function fetchFilmDetails(uri) {
-  const res = await fetch(`/api/film?uri=${encodeURIComponent(uri)}`);
+  // v=2: buster CDN- og SW-cachen fra før cast-feltet fantes
+  const res = await fetch(`/api/film?uri=${encodeURIComponent(uri)}&v=2`);
   if (!res.ok) throw new Error("film_failed");
   return res.json();
 }

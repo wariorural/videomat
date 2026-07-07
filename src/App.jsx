@@ -623,9 +623,6 @@ export default function Videokisen() {
   const [spinKey, setSpinKey] = useState(0);   // bumpes per spinn → trigger flap-flutter
   const pendingTarget = useRef(null);           // filmen flappene lander på (enkeltmodus)
   const pendingDuel = useRef(null);             // [filmA, filmB] i duell
-  const [showHelp, setShowHelp] = useState(false);
-  const helpBtnRef = useRef(null);
-  const helpCloseRef = useRef(null);
   const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film snudd til detaljer, null = lukket
   const [lockHint, setLockHint] = useState(false);    // klikk på låst modus → forklaring i displayet
   const [respin, setRespin] = useState(false);        // auto-spinn etter «Seen it»
@@ -655,18 +652,6 @@ export default function Videokisen() {
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => () => clearTimeout(lockHintTimer.current), []);
   useEffect(() => { setSoundEnabled(soundOn); }, [soundOn]);
-
-  // onboarding-overlay: Escape lukker, fokus flyttes inn og tilbake
-  useEffect(() => {
-    if (!showHelp) return;
-    helpCloseRef.current?.focus();
-    const onKey = (e) => { if (e.key === "Escape") setShowHelp(false); };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      helpBtnRef.current?.focus();
-    };
-  }, [showHelp]);
 
   // detalj-flip: Escape snur tilbake; fokus inn på ✕ og tilbake til feltet
   useEffect(() => {
@@ -1014,7 +999,7 @@ export default function Videokisen() {
         <div className="light-blob cool" aria-hidden="true" />
         <div className="frost" />
         <div className="machine-gloss" />
-        <div style={{ position: "relative", zIndex: 1 }} inert={showHelp || undefined}>
+        <div style={{ position: "relative", zIndex: 1 }}>
         {/* Topplinje */}
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1027,17 +1012,6 @@ export default function Videokisen() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <Key
-              small
-              color="white"
-              ref={helpBtnRef}
-              onClick={() => setShowHelp(true)}
-              aria-expanded={showHelp}
-              aria-label="How it works"
-              capStyle={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, minWidth: 20 }}
-            >
-              ?
-            </Key>
             <Key
               small
               color="white"
@@ -1309,53 +1283,6 @@ export default function Videokisen() {
           </div>
         </div>
         </div>
-
-        {/* Onboarding-overlay */}
-        {showHelp && (
-          <div
-            className="overlay settled"
-            role="dialog"
-            aria-modal="true"
-            aria-label="How it works"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowHelp(false); }}
-          >
-            <div className="overlay-card">
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.14em", color: DIM }}>
-                  HOW IT WORKS
-                </span>
-                <Key small color="white" ref={helpCloseRef} onClick={() => setShowHelp(false)} aria-label="Close">
-                  ✕
-                </Key>
-              </div>
-              <ol style={{ margin: "14px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  ["1", "Fetch your Letterboxd watchlist by username — or upload the CSV export."],
-                  ["2", "Add a friend's list to unlock Movie night & Duel."],
-                  ["3", "Spin. The machine decides — no second-guessing."],
-                ].map(([n, t]) => (
-                  <li key={n} style={{ display: "flex", gap: 10, fontFamily: GROTESK, fontSize: 13.5, lineHeight: 1.5, color: INK }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: DIM, flexShrink: 0, paddingTop: 1 }}>{n}</span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ol>
-              <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${PANEL_LO}`, display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  [ORANGE, "Roulette", "one film from everything you've loaded"],
-                  [GREEN, "Movie night", "only films on both lists"],
-                  [BLUE, "Duel", "one from each list — the machine breaks the tie"],
-                ].map(([c, name, desc]) => (
-                  <div key={name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: GROTESK, fontSize: 13, color: INK }}>
-                    <span style={{ width: 7, height: 7, borderRadius: 1, background: c, flexShrink: 0, alignSelf: "center" }} />
-                    <b style={{ fontWeight: 600 }}>{name}</b>
-                    <span style={{ color: DIM, fontSize: 12.5 }}>{desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Undo-toast — flyter over bunnen, dytter ingenting */}
         {undo && (

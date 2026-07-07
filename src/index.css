@@ -71,8 +71,7 @@ body {
 button,
 a,
 label,
-input,
-.toggle {
+input {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -90,8 +89,7 @@ input,
 }
 
 button:focus-visible,
-input:focus-visible,
-.toggle:focus-visible {
+input:focus-visible {
   outline: 2px solid var(--red);
   outline-offset: 2px;
 }
@@ -117,9 +115,6 @@ input:focus-visible,
 }
 /* hover kun på ekte pekere (unngå falsk hover ved tap) */
 @media (hover: hover) and (pointer: fine) {
-  .mode-btn:hover {
-    background: #f0eee7;
-  }
   .linkbtn:hover {
     color: #a8321a;
   }
@@ -136,45 +131,6 @@ input:focus-visible,
   outline: none;
 }
 
-/* «no repeats»-bryter i Braun-formspråk (erstatter native checkbox) */
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px 4px;
-  min-height: 34px;
-}
-.toggle-track {
-  width: 30px;
-  height: 17px;
-  border-radius: 9px;
-  background: #c2bfb6;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
-  position: relative;
-  transition: background 140ms var(--ease-out);
-  flex-shrink: 0;
-}
-.toggle-track.on {
-  background: var(--red);
-}
-.toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: #f5f3ec;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  transition: transform 140ms var(--ease-out);
-}
-.toggle-track.on .toggle-knob {
-  transform: translateX(13px);
-}
-
 /* liste-slots: alltid to kolonner; duell-vinduer stables på smal skjerm */
 .slots,
 .duel {
@@ -182,21 +138,137 @@ input:focus-visible,
   gap: 10px;
 }
 
-/* ── bunnen: 2-kolonners grid i to rader (se GRID-REGLER i App.jsx).
-   Spin = hele venstre halvdel (spenner begge rader); Seen it og
-   no repeats stables på høyre halvdel med lik look. ─────────────── */
+/* ── bunnen: 4-kolonners grid på én rad (se GRID-REGLER i App.jsx) ── */
 .ctrl-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
-.ctrl-spin { grid-column: 1; grid-row: 1 / 3; }
-.ctrl-seen { grid-column: 2; grid-row: 1; }
-.ctrl-norepeat { grid-column: 2; grid-row: 2; min-width: 0; }
+.ctrl-spin { grid-column: 1 / 3; }
+.ctrl-seen { grid-column: 3; }
+.ctrl-norepeat { grid-column: 4; min-width: 0; }
+@media (max-width: 519px) {
+  .ctrl-spin { grid-column: 1 / -1; }
+  .ctrl-seen { grid-column: 1 / 3; }
+  .ctrl-norepeat { grid-column: 3 / -1; }
+}
 
-/* ── onboarding-overlay ──────────────────────────────────────── */
-.help {
+/* ── TE-tast: mørk socket + cap som synker inn ved trykk ────────
+   Etter Teenage Engineering-referansen: socket = nesten-svart brønn,
+   cap = gradient-plast med inset-høylys. Trykk/latched = skygger
+   kollapser + mørk inset-ring; ingen layout-endring (transform). */
+.key {
+  position: relative;
+  display: block;
+  padding: 0;
+  background: #12110e;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 1px 1px 2px rgba(255, 255, 255, 0.65);
+  min-width: 0;
+}
+/* cap-fargen «reflekteres» i socket-veggene */
+.key::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--cap);
+  border-radius: 4px;
+  filter: blur(2px);
+  pointer-events: none;
+}
+.key:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.key .cap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 3px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: linear-gradient(117deg, var(--cap), var(--cap2));
+  color: var(--captext);
+  transition:
+    transform 100ms cubic-bezier(0.12, 0.23, 0.5, 1),
+    box-shadow 100ms cubic-bezier(0.12, 0.23, 0.5, 1);
+  box-shadow:
+    inset 1px 1px 2px var(--hl),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.35),
+    1px 1px 2px -0.5px rgba(38, 14, 4, 0.5),
+    3px 3px 8px -2px rgba(38, 14, 4, 0.35),
+    7px 7px 18px -3px rgba(38, 14, 4, 0.22);
+}
+.key.small .cap {
+  min-height: 24px;
+  padding: 3px 8px;
+}
+.key:not(:disabled):active .cap,
+.key.on .cap {
+  transform: translate(0.5px, 0.5px) scale(0.98);
+  box-shadow:
+    inset 1px 1px 2px rgba(0, 0, 0, 0),
+    inset -1px -1px 2px rgba(0, 0, 0, 0),
+    inset 0 0 4px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .key .cap {
+    transition: none;
+  }
+}
+
+/* ── flip-liste: kompakt kort som roterer til redigering ──────── */
+.flip {
+  flex: 1;
+  min-width: 0;
+  height: 96px;
+  perspective: 700px;
+  position: relative;
+}
+.flip-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 320ms var(--ease-in-out);
+}
+.flip.flipped .flip-inner {
+  transform: rotateY(180deg);
+}
+/* NB: ingen overflow:hidden her — det flater ut 3D-konteksten og
+   skrur av backface-visibility i Chrome */
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 4px;
+  transform: rotateY(0deg);
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip-inner {
+    transition: none;
+  }
+}
+
+/* ── undo-toast: flyter over bunnraden, null layout-skift ─────── */
+.toast {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 74px;
+  z-index: 4;
+}
+
+/* ── delte overlays (onboarding + filmdetaljer) ─────────────── */
+.overlay {
   position: absolute;
   inset: 0;
   z-index: 5;
@@ -208,7 +280,7 @@ input:focus-visible,
   justify-content: center;
   padding: 64px 18px 18px;
 }
-.help-card {
+.overlay-card {
   width: 100%;
   max-width: 420px;
   background: #e9e7e0;
@@ -237,32 +309,6 @@ input:focus-visible,
 }
 .poster-fade {
   animation: poster-in 280ms var(--ease-out) both;
-}
-
-/* strøm-LED i topplinja */
-.led {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4a9d5f;
-  box-shadow:
-    inset 0 1px 1px rgba(0, 0, 0, 0.35),
-    0 0 4px rgba(74, 157, 95, 0.5);
-}
-.led.on {
-  background: var(--red);
-  box-shadow:
-    inset 0 1px 1px rgba(0, 0, 0, 0.35),
-    0 0 7px rgba(216, 68, 42, 0.85);
-  animation: led-blink 220ms steps(2, jump-none) infinite;
-}
-@keyframes led-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.35;
-  }
 }
 
 /* tittel i display-vinduet: lett blur mens hjulet ruller */
@@ -332,9 +378,6 @@ input:focus-visible,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .led.on {
-    animation: none;
-  }
   .settled,
   .stamp {
     animation: none;

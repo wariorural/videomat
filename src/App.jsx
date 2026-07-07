@@ -30,10 +30,11 @@ const GROTESK = "'Helvetica Neue','Inter',Helvetica,Arial,sans-serif";
 // dot-matrix (à la Nothing) — KUN mikroetiketter; trenger større grad + tracking for lesbarhet
 const DOT = "'Doto','JetBrains Mono',ui-monospace,monospace";
 
+// modusene bærer Letterboxd-fargene: A-oransje, overlapp-grønn, B-blå
 const MODES = [
-  { id: "all", label: "Roulette", sub: "the whole pool", dot: INK },
-  { id: "date", label: "Movie night", sub: "overlap only", dot: GREEN },
-  { id: "duell", label: "Duel", sub: "one from each", dot: RED },
+  { id: "all", label: "Roulette", color: "lbOrange" },
+  { id: "date", label: "Movie night", color: "lbGreen" },
+  { id: "duell", label: "Duel", color: "lbBlue" },
 ];
 
 const DEFAULT_PERSON = { a: "You", b: "Partner" };
@@ -49,21 +50,59 @@ function buzz(pattern) {
   }
 }
 
-const ghostBtn = {
-  fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase",
-  color: INK, background: "transparent", border: `1px solid rgba(28,27,25,0.32)`,
-  borderRadius: 3, padding: "8px 12px", cursor: "pointer", minHeight: 34,
+/* ── TE-tast: felles byggekloss for alle knapper (se .key i CSS) ── */
+
+const KEY_COLORS = {
+  orange: { cap: "#DD5117", cap2: "#C9480F", hl: "rgba(255,191,143,0.9)", text: "#fff" },
+  white: { cap: "#E3E2DA", cap2: "#DED8D5", hl: "rgba(255,255,255,0.95)", text: INK },
+  ink: { cap: "#343835", cap2: "#313131", hl: "rgba(255,255,255,0.45)", text: "#F5F3EC" },
+  lbOrange: { cap: "#FF8000", cap2: "#EE7300", hl: "rgba(255,216,170,0.95)", text: INK },
+  lbGreen: { cap: "#00C64A", cap2: "#00B441", hl: "rgba(195,255,215,0.95)", text: INK },
+  lbBlue: { cap: "#40BCF4", cap2: "#2FB0EC", hl: "rgba(210,240,255,0.95)", text: INK },
 };
 
-function Dot({ c }) {
-  return <span style={{ width: 9, height: 9, borderRadius: 1, background: c, display: "inline-block", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.25)" }} />;
+function Key({ color = "white", on = false, small = false, className = "", style, capStyle, children, ...props }) {
+  const c = KEY_COLORS[color];
+  return (
+    <button
+      className={`key${on ? " on" : ""}${small ? " small" : ""}${className ? ` ${className}` : ""}`}
+      style={{ "--cap": c.cap, "--cap2": c.cap2, "--hl": c.hl, "--captext": c.text, ...style }}
+      {...props}
+    >
+      <span className="cap" style={{
+        fontFamily: MONO, fontSize: 11, fontWeight: 700,
+        letterSpacing: "0.08em", textTransform: "uppercase",
+        ...capStyle,
+      }}>
+        {children}
+      </span>
+    </button>
+  );
 }
 
-/* ── liste-slot: brukernavn primært, CSV som fallback ─────────── */
+function SpeakerIcon({ muted }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 6h3l4-3.5v11L5 10H2z" fill="currentColor" />
+      {muted ? (
+        <path d="M10.5 5.5 14 10.5 M14 5.5 10.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      ) : (
+        <path d="M11 5.2c1.3 1 1.3 4.6 0 5.6 M12.7 3.6c2.2 1.8 2.2 7 0 8.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+      )}
+    </svg>
+  );
+}
 
-function UploadSlot({ side, node, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
+/* ── flip-liste: kompakt knapp som roterer til redigering ───────
+   Fast høyde begge sider — maskinen vokser aldri. Fronten er én
+   knapp (flipper); baksiden har input/FETCH/CSV eller rename/
+   REFRESH/CHANGE. Flipper selv tilbake etter vellykket lasting. */
+
+function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile, onFetch, onPersonChange, onClear }) {
   const fileRef = useRef(null);
+  const inputRef = useRef(null);
   const [drag, setDrag] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const [uname, setUname] = useState(slot.username || "");
   const loaded = slot.films.length > 0;
 
@@ -72,123 +111,160 @@ function UploadSlot({ side, node, slot, accent, optional, fetching, error, onFil
     if (f) onFile(f);
   };
 
+  // vellykket lasting → flipp tilbake til fronten
+  useEffect(() => {
+    if (loaded && !fetching && !error) setFlipped(false);
+  }, [loaded, fetching, error]);
+
+  // flipp til redigering → fokus i feltet
+  useEffect(() => {
+    if (flipped) {
+      const t = setTimeout(() => inputRef.current?.focus(), 330);
+      return () => clearTimeout(t);
+    }
+  }, [flipped]);
+
+  const status = error
+    ? error
+    : slot.total > slot.films.length
+      ? `fetched ${slot.films.length} of ${slot.total}`
+      : null;
+
   return (
     <div
+      className={`flip${flipped ? " flipped" : ""}`}
       data-node={node}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
-      style={{
-        flex: 1,
-        border: `1.5px solid ${loaded ? accent : "rgba(28,27,25,0.22)"}`,
-        background: drag ? PANEL_HI : "rgba(28,27,25,0.035)",
-        borderRadius: 4,
-        padding: "12px 12px 11px",
-        transition: "background 120ms, border-color 120ms, box-shadow 120ms",
-        minWidth: 0,
-        /* nedsenket i skallet; lastet liste lyser svakt i sporet rundt */
-        boxShadow: loaded
-          ? `inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5), 0 0 12px -2px ${accent}`
-          : "inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5)",
-      }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 1, background: accent, display: "inline-block", flexShrink: 0 }} />
-        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.16em", color: DIM, textTransform: "uppercase" }}>
-          {side}
-        </span>
-      </div>
-
-      {loaded ? (
-        <div>
-          <input
-            className="rename"
-            value={slot.person}
-            onChange={(e) => onPersonChange(e.target.value)}
-            aria-label="Display name (tap to rename)"
-            title="Tap to rename"
-            name={`name-${side}`}
-            autoComplete="off"
-            style={{
-              fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK,
-              background: "transparent", border: "1px solid transparent",
-              borderBottom: "1px dashed rgba(28,27,25,0.35)",
-              borderRadius: 3, padding: "2px 4px", width: "100%", minWidth: 0,
-            }}
-          />
-          <div style={{ fontFamily: MONO, fontSize: 12, color: DIM, marginTop: 4 }}>
-            {slot.films.length} films · {slot.username ? `@${slot.username}` : slot.filename}
-          </div>
-          {slot.total > slot.films.length && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: ERROR, marginTop: 2 }}>
-              fetched {slot.films.length} of {slot.total}
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            {slot.username && (
-              <button className="press" onClick={() => onFetch(slot.username)} disabled={fetching} style={{ ...ghostBtn, opacity: fetching ? 0.5 : 1 }}>
-                {fetching ? "fetching…" : "refresh"}
-              </button>
+      <div className="flip-inner">
+        {/* front: hele kortet er knappen som flipper */}
+        <button
+          className="flip-face press"
+          onClick={() => setFlipped(true)}
+          aria-expanded={flipped}
+          aria-label={`${side} — edit`}
+          tabIndex={flipped ? -1 : 0}
+          style={{
+            display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center",
+            gap: 6, padding: "12px 14px", cursor: "pointer", textAlign: "left",
+            border: `1.5px solid ${loaded ? accent : "rgba(28,27,25,0.22)"}`,
+            background: drag ? PANEL_HI : "rgba(28,27,25,0.035)",
+            boxShadow: loaded
+              ? `inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5), 0 0 12px -2px ${accent}`
+              : "inset 0 1.5px 4px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.5)",
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 9, height: 9, borderRadius: 1, background: accent, flexShrink: 0 }} />
+            <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.16em", color: DIM, textTransform: "uppercase" }}>
+              {side}
+            </span>
+          </span>
+          <span style={{ minWidth: 0, width: "100%" }}>
+            {loaded ? (
+              <>
+                <span style={{ display: "block", fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {slot.person}
+                </span>
+                <span style={{ display: "block", fontFamily: MONO, fontSize: 11.5, color: status ? ERROR : DIM, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {status || `${slot.films.length} films`}
+                </span>
+              </>
+            ) : (
+              <span style={{ display: "block", fontFamily: MONO, fontSize: 12, color: status ? ERROR : DIM, lineHeight: 1.4 }}>
+                {status || (optional ? "add a friend's list" : "add your watchlist")}
+              </span>
             )}
-            <button className="press" onClick={onClear} style={ghostBtn}>change</button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <form
-            onSubmit={(e) => { e.preventDefault(); if (uname.trim()) onFetch(uname.trim()); }}
-            style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
-          >
-            <input
-              className="uname"
-              value={uname}
-              onChange={(e) => setUname(e.target.value)}
-              placeholder="letterboxd username"
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              name={`user-${side}`}
-              aria-label="Letterboxd username"
-              style={{
-                flex: "1 1 110px", minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
-                background: "#CFCCC3", border: "1px solid rgba(28,27,25,0.18)",
-                borderRadius: 3, padding: "9px 10px",
-                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
-              }}
-            />
-            <button
-              type="submit"
-              className="press"
-              disabled={fetching || !uname.trim()}
-              style={{
-                ...ghostBtn, background: INK, color: "#F5F3EC", border: `1px solid ${INK}`,
-                opacity: fetching || !uname.trim() ? 0.45 : 1,
-              }}
-            >
-              {fetching ? "…" : "fetch"}
-            </button>
-          </form>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, color: DIM, marginTop: 6, lineHeight: 1.4 }}>
-            {optional
-              ? "optional — a friend's username unlocks Movie night & Duel"
-              : "any public Letterboxd watchlist"}
-          </div>
-          <button
-            className="press"
-            onClick={() => fileRef.current && fileRef.current.click()}
-            style={{ ...ghostBtn, fontSize: 10, padding: "6px 10px", minHeight: 30, marginTop: 8 }}
-          >
-            or upload watchlist.csv
-          </button>
-        </div>
-      )}
+          </span>
+        </button>
 
-      {error && (
-        <div role="alert" style={{ fontFamily: MONO, fontSize: 11, color: ERROR, marginTop: 8, lineHeight: 1.4 }}>
-          {error}
+        {/* bakside: redigering — samme fotavtrykk */}
+        <div
+          className="flip-face flip-back"
+          aria-hidden={!flipped}
+          style={{
+            display: "flex", flexDirection: "column", justifyContent: "center", gap: 7,
+            padding: "10px 12px", background: PANEL_HI,
+            border: `1.5px solid ${loaded ? accent : "rgba(28,27,25,0.3)"}`,
+            boxShadow: "inset 0 1.5px 4px rgba(0,0,0,0.12)",
+          }}
+        >
+          {loaded ? (
+            <>
+              <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                <input
+                  ref={inputRef}
+                  className="rename"
+                  value={slot.person}
+                  onChange={(e) => onPersonChange(e.target.value)}
+                  aria-label="Display name (tap to rename)"
+                  name={`name-${side}`}
+                  autoComplete="off"
+                  tabIndex={flipped ? 0 : -1}
+                  style={{
+                    flex: 1, minWidth: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: INK,
+                    background: "transparent", border: "1px solid transparent",
+                    borderBottom: "1px dashed rgba(28,27,25,0.35)",
+                    borderRadius: 3, padding: "1px 4px",
+                  }}
+                />
+                <Key small color="white" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
+              </div>
+              <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                {slot.username && (
+                  <Key small color="white" onClick={() => onFetch(slot.username)} disabled={fetching} tabIndex={flipped ? 0 : -1}>
+                    {fetching ? "…" : "refresh"}
+                  </Key>
+                )}
+                <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1}>change</Key>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10.5, color: status ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {status || (slot.username ? `@${slot.username}` : slot.filename)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <form
+                onSubmit={(e) => { e.preventDefault(); if (uname.trim()) onFetch(uname.trim()); }}
+                style={{ display: "flex", gap: 7 }}
+              >
+                <input
+                  ref={inputRef}
+                  className="uname"
+                  value={uname}
+                  onChange={(e) => setUname(e.target.value)}
+                  placeholder="letterboxd user"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  name={`user-${side}`}
+                  aria-label="Letterboxd username"
+                  tabIndex={flipped ? 0 : -1}
+                  style={{
+                    flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
+                    background: "#CFCCC3", border: "1px solid rgba(28,27,25,0.18)",
+                    borderRadius: 3, padding: "5px 9px",
+                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
+                  }}
+                />
+                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1}>
+                  {fetching ? "…" : "fetch"}
+                </Key>
+              </form>
+              <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                <Key small color="white" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1}>csv</Key>
+                <span role={error ? "alert" : undefined} style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 10.5, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {error || "or drop watchlist.csv here"}
+                </span>
+                <Key small color="white" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       <input
         ref={fileRef}
@@ -365,24 +441,23 @@ function CircuitLayer() {
       const spin = box(".ctrl-spin");
       if (!la || !lb || !disp || !modes || !spin) { setNet(null); return; }
 
+      // signalvei etter ny stabling: lister → modus → display → Spin
       const lines = [
-        routeDown(la.x + la.w * 0.5, la.y + la.h, disp.x + disp.w * 0.3, disp.y),
-        routeDown(lb.x + lb.w * 0.5, lb.y + lb.h, disp.x + disp.w * 0.7, disp.y),
-        routeDown(disp.x + disp.w * 0.5, disp.y + disp.h, modes.x + modes.w * 0.5, modes.y),
-        routeDown(modes.x + modes.w * 0.5, modes.y + modes.h, spin.x + spin.w * 0.5, spin.y),
+        routeDown(la.x + la.w * 0.5, la.y + la.h, modes.x + modes.w * 0.2, modes.y),
+        routeDown(lb.x + lb.w * 0.5, lb.y + lb.h, modes.x + modes.w * 0.8, modes.y),
+        routeDown(modes.x + modes.w * 0.5, modes.y + modes.h, disp.x + disp.w * 0.5, disp.y),
+        routeDown(disp.x + disp.w * 0.35, disp.y + disp.h, spin.x + spin.w * 0.5, spin.y),
       ];
       const vias = [
         { x: la.x + la.w * 0.5, y: la.y + la.h },
         { x: lb.x + lb.w * 0.5, y: lb.y + lb.h },
-        { x: disp.x + disp.w * 0.5, y: disp.y + disp.h },
+        { x: modes.x + modes.w * 0.5, y: modes.y + modes.h },
         { x: spin.x + spin.w * 0.5, y: spin.y },
       ];
-      // SMD-pad-par ved display-inngangene
+      // SMD-pad-par ved display-inngangen
       const pads = [
-        { x: disp.x + disp.w * 0.3 - 9, y: disp.y - 14 },
-        { x: disp.x + disp.w * 0.3 + 4, y: disp.y - 14 },
-        { x: disp.x + disp.w * 0.7 - 9, y: disp.y - 14 },
-        { x: disp.x + disp.w * 0.7 + 4, y: disp.y - 14 },
+        { x: disp.x + disp.w * 0.5 - 9, y: disp.y - 14 },
+        { x: disp.x + disp.w * 0.5 + 4, y: disp.y - 14 },
       ];
       setNet({ w: r0.width, h: r0.height, lines, vias, pads });
     };
@@ -415,38 +490,38 @@ function CircuitLayer() {
   );
 }
 
-/* ── detaljstripe under displayet (enkeltmodus) ───────────────── */
+/* ── filmdetaljer i popup (åpnes ved klikk på displayet) ────────── */
 
-function SingleDetails({ film, info, whose }) {
-  const hasBody = info && (info.director || info.genres?.length > 0 || info.synopsis);
+function DetailsBody({ film, info, whose }) {
+  const facts = [film.year, info?.runtime ? `${info.runtime} min` : null, info?.rating ? `★ ${info.rating}` : null]
+    .filter(Boolean).join(" · ");
   return (
-    <div className="settled" style={{
-      display: "flex", gap: 14, alignItems: "flex-start",
-      marginTop: 10, padding: "12px 14px",
-      background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 6,
-    }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
       {info?.poster && (
         <img
           src={info.poster} alt="" referrerPolicy="no-referrer" className="poster-fade"
           style={{
-            width: 58, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 4,
+            width: 86, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 4,
             flexShrink: 0, background: "#cfccc3", boxShadow: "0 3px 10px -5px rgba(0,0,0,0.5)",
           }}
         />
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
-        {hasBody && (info.director || info.genres?.length > 0) && (
-          <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, lineHeight: 1.4 }}>
+        {facts && (
+          <div style={{ fontFamily: MONO, fontSize: 11.5, color: DIM }}>{facts}</div>
+        )}
+        {info && (info.director || info.genres?.length > 0) && (
+          <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, lineHeight: 1.4, marginTop: 3 }}>
             {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
               .filter(Boolean).join(" — ")}
           </div>
         )}
         {info?.synopsis && (
-          <p style={{ margin: hasBody ? "6px 0 0" : 0, fontFamily: GROTESK, fontSize: 12.5, lineHeight: 1.5, color: INK }}>
+          <p style={{ margin: "8px 0 0", fontFamily: GROTESK, fontSize: 13, lineHeight: 1.55, color: INK }}>
             {info.synopsis}
           </p>
         )}
-        <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 9, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
           {whose && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: DIM }}>
               <span style={{ width: 8, height: 8, borderRadius: 1, background: whose.color }} />
@@ -487,6 +562,9 @@ export default function Videokisen() {
   const [showHelp, setShowHelp] = useState(false);
   const helpBtnRef = useRef(null);
   const helpCloseRef = useRef(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const detailsCloseRef = useRef(null);
+  const displayRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
@@ -518,6 +596,18 @@ export default function Videokisen() {
       helpBtnRef.current?.focus();
     };
   }, [showHelp]);
+
+  // detalj-popup: Escape lukker, fokus inn og tilbake til displayet
+  useEffect(() => {
+    if (!showDetails) return;
+    detailsCloseRef.current?.focus();
+    const onKey = (e) => { if (e.key === "Escape") setShowDetails(false); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      displayRef.current?.focus();
+    };
+  }, [showDetails]);
 
   // hent plakat + fakta for filmene hjulet har landet på (én gang per film)
   useEffect(() => {
@@ -807,6 +897,12 @@ export default function Videokisen() {
 
   const shown = displays[0] || picks[0];
   const landed = picks[0] && !spinning;
+  const canOpenDetails = !isDuel && !!landed && !!(detailsFor(picks[0]) || picks[0]?.uri);
+
+  // resultatet forsvant (nytt spinn/modusbytte) → lukk popupen
+  useEffect(() => {
+    if (!canOpenDetails) setShowDetails(false);
+  }, [canOpenDetails]);
 
   return (
     <div className="page" style={{
@@ -816,12 +912,12 @@ export default function Videokisen() {
     }}>
       {/* ── GRID-REGLER ─────────────────────────────────────────────
           Indre bredde W = 560 − 2×18. Gutter = 10px overalt.
-          2 kolonner: List A/B (.slots), duel-vinduene (.duel) og
-          bunnen (.ctrl-grid): Spin = hele venstre halvdel over to
-          rader; Seen it (rad 1) og no repeats (rad 2) stables på
-          høyre halvdel med lik look. Posisjonene er faste så
-          ingenting hopper når Seen it kommer og går.
-          3 kolonner: modus-kortene (.modes)
+          Stabling: lister (2 kol) → modus (3 kol) → display → bunn.
+          Bunn (.ctrl-grid) = 4 kol på én rad: Spin span 2 (= 2-kol-
+          linja), Seen it kol 3, No repeats kol 4 — faste posisjoner,
+          null hopping. Mobil <520px: Spin hel rad, de to andre halve.
+          Maskinen har FAST høyde: flip-lister, statuslinje og display
+          er faste; detaljer og undo bor i popup/toast.
           ───────────────────────────────────────────────────────── */}
       <main className="machine" style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
@@ -849,54 +945,40 @@ export default function Videokisen() {
               ONE SPIN · ONE FILM
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Nothing-signaturen: én liten firkant i aksentfargen, ellers ingenting */}
-            <span aria-hidden="true" style={{ width: 6, height: 6, background: RED, flexShrink: 0 }} />
-            <div style={{ display: "flex", gap: 5 }} aria-hidden="true">
-              <Dot c={ORANGE} /><Dot c={GREEN} /><Dot c={BLUE} />
-            </div>
-            <span className={`led${spinning || deciding ? " on" : ""}`} aria-hidden="true" />
-            <button
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <Key
+              small
+              color="white"
               ref={helpBtnRef}
-              className="press"
               onClick={() => setShowHelp(true)}
               aria-expanded={showHelp}
               aria-label="How it works"
-              style={{ ...ghostBtn, fontFamily: DOT, fontWeight: 900, fontSize: 13, padding: "7px 11px", minHeight: 30 }}
+              capStyle={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, minWidth: 20 }}
             >
               ?
-            </button>
-            <button
-              className="press"
+            </Key>
+            <Key
+              small
+              color="white"
               onClick={() => setSoundOn(!soundOn)}
               aria-pressed={soundOn}
-              style={{ ...ghostBtn, fontFamily: DOT, fontWeight: 900, fontSize: 12, letterSpacing: "0.1em", padding: "7px 9px", minHeight: 30 }}
+              aria-label={soundOn ? "Sound on" : "Sound off"}
+              capStyle={{ minWidth: 20 }}
             >
-              sound {soundOn ? "on" : "off"}
-            </button>
+              <SpeakerIcon muted={!soundOn} />
+            </Key>
           </div>
         </header>
 
-        {/* Intro for førstegangsbrukere — forsvinner når noe er lastet */}
-        {!oneLoaded && (
-          <p style={{
-            margin: 0, padding: "12px 18px 0", fontFamily: GROTESK, fontSize: 13.5,
-            lineHeight: 1.5, color: INK,
-          }}>
-            Can’t pick a film? Feed it your Letterboxd watchlist and let the machine spin.
-            Add a friend’s list to find what you both want to see.
-          </p>
-        )}
-
         {/* Innmating */}
-        <div className="slots" style={{ padding: "14px 18px" }}>
-          <UploadSlot
+        <div className="slots" style={{ padding: "14px 18px 0" }}>
+          <FlipSlot
             side="List A" node="lista" slot={a} accent={ORANGE}
             fetching={fetching.a} error={errors.a}
             onFile={loadInto("a")} onFetch={fetchInto("a")}
             onPersonChange={setPerson("a")} onClear={clearSlot("a")}
           />
-          <UploadSlot
+          <FlipSlot
             side="List B" node="listb" slot={b} accent={BLUE} optional
             fetching={fetching.b} error={errors.b}
             onFile={loadInto("b")} onFetch={fetchInto("b")}
@@ -904,22 +986,46 @@ export default function Videokisen() {
           />
         </div>
 
-        {/* Status-stripe */}
-        {oneLoaded && (
-          <div style={{
-            display: "flex", gap: 18, padding: "0 18px 12px",
-            fontFamily: MONO, fontSize: 11.5, color: DIM, flexWrap: "wrap",
-          }}>
-            {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
-            <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : "films"}</span>
-            {noRepeat && excluded.size > 0 && (
-              <span>
-                <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
-                <button className="linkbtn" onClick={resetExcluded}>reset</button>
-              </span>
-            )}
-          </div>
-        )}
+        {/* Modus — tre taster i Letterboxd-fargene */}
+        <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 10, padding: "12px 18px 0" }}>
+          {MODES.map((m) => {
+            const on = mode === m.id;
+            const lockedMode = m.id !== "all" && !bothLoaded;
+            return (
+              <Key
+                key={m.id}
+                color={m.color}
+                on={on}
+                aria-pressed={on}
+                disabled={lockedMode}
+                onClick={() => switchMode(m.id)}
+                style={{ flex: 1 }}
+                capStyle={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 700, letterSpacing: "0.01em", textTransform: "none" }}
+              >
+                {m.label}
+              </Key>
+            );
+          })}
+        </div>
+
+        {/* Status-stripe — fast høyde, innholdet kommer og går */}
+        <div style={{
+          display: "flex", gap: 18, padding: "9px 18px", minHeight: 34,
+          fontFamily: MONO, fontSize: 11.5, color: DIM, flexWrap: "wrap", alignItems: "baseline",
+        }}>
+          {oneLoaded && (
+            <>
+              {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
+              <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : "films"}</span>
+              {noRepeat && excluded.size > 0 && (
+                <span>
+                  <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
+                  <button className="linkbtn" onClick={resetExcluded}>reset</button>
+                </span>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Display */}
         <div style={{ padding: "6px 18px 4px" }}>
@@ -959,51 +1065,65 @@ export default function Videokisen() {
               )}
             </div>
           ) : (
-            <div>
-              <div className="display-module" style={{
-                minHeight: 168, padding: "30px 20px", display: "flex",
+            <div
+              className="display-module"
+              ref={displayRef}
+              /* landet display = knapp som åpner filmdetaljene */
+              {...(canOpenDetails ? {
+                role: "button",
+                tabIndex: 0,
+                "aria-label": `Details for ${picks[0].name}`,
+                onClick: () => setShowDetails(true),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowDetails(true); }
+                },
+              } : {})}
+              style={{
+                /* FAST høyde — rommer to flap-linjer; 1-linjers sentreres */
+                height: 208, padding: "26px 20px 30px", display: "flex",
                 flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
-              }}>
-                {!canSpin && !shown ? (
-                  <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
-                    {emptyText}
-                  </span>
-                ) : shown ? (
-                  <>
-                    <SplitFlapDisplay
-                      text={(displays[0] || picks[0])?.name || ""}
-                      spinning={spinning}
-                      spinKey={spinKey}
-                      landed={landed}
-                      onSettle={onFlapSettle}
-                    />
-                    {shown.year && (
-                      <div style={{
-                        position: "relative", zIndex: 1, marginTop: 15,
-                        fontFamily: MONO, fontSize: 12, letterSpacing: "0.14em", color: D_HI,
-                      }}>
-                        {landed
-                          ? [shown.year,
-                             detailsFor(picks[0])?.runtime ? `${detailsFor(picks[0]).runtime} MIN` : null,
-                             detailsFor(picks[0])?.rating ? `★ ${detailsFor(picks[0]).rating}` : null,
-                            ].filter(Boolean).join("  ·  ")
-                          : shown.year}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
-                    READY · PRESS SPIN
-                  </span>
-                )}
-              </div>
-
-              {landed && (detailsFor(picks[0]) || picks[0].uri) && (
-                <SingleDetails
-                  film={picks[0]}
-                  info={detailsFor(picks[0])}
-                  whose={bothLoaded ? whose(picks[0]) : null}
-                />
+                cursor: canOpenDetails ? "pointer" : "default",
+              }}
+            >
+              {!canSpin && !shown ? (
+                <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                  {emptyText}
+                </span>
+              ) : shown ? (
+                <>
+                  <SplitFlapDisplay
+                    text={(displays[0] || picks[0])?.name || ""}
+                    spinning={spinning}
+                    spinKey={spinKey}
+                    landed={landed}
+                    onSettle={onFlapSettle}
+                  />
+                  {shown.year && (
+                    <div style={{
+                      position: "relative", zIndex: 1, marginTop: 15,
+                      fontFamily: MONO, fontSize: 12, letterSpacing: "0.14em", color: D_HI,
+                    }}>
+                      {landed
+                        ? [shown.year,
+                           detailsFor(picks[0])?.runtime ? `${detailsFor(picks[0]).runtime} MIN` : null,
+                           detailsFor(picks[0])?.rating ? `★ ${detailsFor(picks[0]).rating}` : null,
+                          ].filter(Boolean).join("  ·  ")
+                        : shown.year}
+                    </div>
+                  )}
+                  {canOpenDetails && (
+                    <span className="settled" style={{
+                      position: "absolute", bottom: 9, left: 0, right: 0, zIndex: 1,
+                      fontFamily: DOT, fontWeight: 900, fontSize: 11, letterSpacing: "0.16em", color: D_EMPTY,
+                    }}>
+                      TAP FOR DETAILS
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                  READY · PRESS SPIN
+                </span>
               )}
             </div>
           )}
@@ -1014,113 +1134,42 @@ export default function Videokisen() {
           {chosenFilm ? `Chosen film: ${chosenFilm.name} ${chosenFilm.year}` : ""}
         </div>
 
-        {/* Modus */}
-        <div className="modes" role="group" aria-label="Mode" style={{ display: "flex", gap: 10, padding: "14px 18px 6px" }}>
-          {MODES.map((m) => {
-            const on = mode === m.id;
-            return (
-              <button key={m.id}
-                className="press mode-btn"
-                aria-pressed={on}
-                onClick={() => switchMode(m.id)}
-                style={{
-                  flex: 1, cursor: "pointer", borderRadius: 5, padding: "9px 6px 8px",
-                  background: on ? INK : PANEL_HI,
-                  border: `1px solid ${on ? INK : PANEL_LO}`,
-                  /* fysisk vippebryter: aktiv = trykket inn, inaktiv = hevet */
-                  boxShadow: on
-                    ? "inset 0 2px 3px rgba(0,0,0,0.4)"
-                    : "0 2px 0 rgba(0,0,0,0.14), 0 1px 0 rgba(255,255,255,0.5) inset",
-                  textAlign: "left", transition: "background 120ms, box-shadow 120ms", minWidth: 0,
-                }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 1, background: on && m.dot === INK ? "#F5F3EC" : m.dot, flexShrink: 0 }} />
-                  <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: on ? "#F5F3EC" : INK }}>{m.label}</span>
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: on ? D_HI : DIM, marginTop: 3, paddingLeft: 13 }}>{m.sub}</div>
-              </button>
-            );
-          })}
-        </div>
-
         {/* Kontroller */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 18px 20px" }}>
-          {undo && (
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-              fontFamily: MONO, fontSize: 11, color: DIM,
-              background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 5, padding: "8px 12px",
-            }}>
-              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                Marked “{undo.name}” as seen
-              </span>
-              <button className="linkbtn" onClick={undoWatched} style={{ flexShrink: 0 }}>undo</button>
-            </div>
-          )}
-
           {duelLanded && !fate && winner === null && (
-            <button
-              className="press"
-              onClick={decide}
-              disabled={deciding}
-              style={{
-                background: INK, color: "#F5F3EC", border: "none", borderRadius: 6,
-                padding: "13px 16px", cursor: deciding ? "default" : "pointer",
-                fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.16em",
-                boxShadow: "0 2px 0 rgba(0,0,0,0.22)",
-              }}>
+            <Key color="ink" onClick={decide} disabled={deciding} capStyle={{ fontSize: 12, letterSpacing: "0.16em", minHeight: 38 }}>
               {deciding ? "DECIDING…" : "LET THE MACHINE DECIDE"}
-            </button>
+            </Key>
           )}
 
           <div className="ctrl-grid">
-            <button
-              className="press ctrl-spin"
+            <Key
+              color="orange"
+              className="ctrl-spin"
               onClick={spin}
               disabled={spinning || deciding || !canSpin}
-              style={{
-                cursor: spinning || deciding || !canSpin ? "default" : "pointer",
-                background: !canSpin ? PANEL_LO : RED,
-                color: !canSpin ? DIM : "#fff",
-                border: "none", borderRadius: 7, padding: "16px 20px",
-                fontFamily: GROTESK, fontSize: 19, fontWeight: 700, letterSpacing: "0.01em",
-                boxShadow: !canSpin ? "none" : "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.22) inset",
-              }}>
+              capStyle={{ fontFamily: GROTESK, fontSize: 17, fontWeight: 700, letterSpacing: "0.01em", textTransform: "none", minHeight: 40 }}
+            >
               {spinning ? "spinning…" : picks[0] ? "Spin again" : "Spin"}
-            </button>
+            </Key>
 
             {chosenFilm && !spinning && !deciding && (
-              <button className="press ctrl-seen" onClick={markWatched} style={{
-                cursor: "pointer",
-                background: INK, color: "#F5F3EC",
-                border: "none", borderRadius: 7, padding: "12px 8px",
-                fontFamily: GROTESK, fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
-                boxShadow: "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.14) inset",
-              }}>
+              <Key color="ink" className="ctrl-seen" onClick={markWatched} capStyle={{ minHeight: 40 }}>
                 Seen it ✓
-              </button>
+              </Key>
             )}
 
-            <button
-              className="press ctrl-norepeat"
+            <Key
+              color="white"
+              className="ctrl-norepeat"
+              on={noRepeat}
               role="switch"
               aria-checked={noRepeat}
               onClick={() => setNoRepeat(!noRepeat)}
-              style={{
-                cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
-                background: noRepeat ? INK : PANEL_HI,
-                color: noRepeat ? "#F5F3EC" : INK,
-                border: `1px solid ${noRepeat ? INK : PANEL_LO}`,
-                borderRadius: 7, padding: "12px 8px",
-                fontFamily: GROTESK, fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
-                boxShadow: "0 2px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.14) inset",
-                transition: "background 120ms, color 120ms, border-color 120ms",
-              }}
+              capStyle={{ minHeight: 40, fontSize: 10.5 }}
             >
-              <span className={`toggle-track${noRepeat ? " on" : ""}`}><span className="toggle-knob" /></span>
               No repeats
-            </button>
+            </Key>
           </div>
         </div>
         </div>
@@ -1128,26 +1177,20 @@ export default function Videokisen() {
         {/* Onboarding-overlay */}
         {showHelp && (
           <div
-            className="help settled"
+            className="overlay settled"
             role="dialog"
             aria-modal="true"
             aria-label="How it works"
             onClick={(e) => { if (e.target === e.currentTarget) setShowHelp(false); }}
           >
-            <div className="help-card">
+            <div className="overlay-card">
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.14em", color: DIM }}>
                   HOW IT WORKS
                 </span>
-                <button
-                  ref={helpCloseRef}
-                  className="press"
-                  onClick={() => setShowHelp(false)}
-                  aria-label="Close"
-                  style={{ ...ghostBtn, padding: "5px 10px", minHeight: 28 }}
-                >
+                <Key small color="white" ref={helpCloseRef} onClick={() => setShowHelp(false)} aria-label="Close">
                   ✕
-                </button>
+                </Key>
               </div>
               <ol style={{ margin: "14px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
@@ -1163,9 +1206,9 @@ export default function Videokisen() {
               </ol>
               <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${PANEL_LO}`, display: "flex", flexDirection: "column", gap: 8 }}>
                 {[
-                  [INK, "Roulette", "one film from everything you've loaded"],
+                  [ORANGE, "Roulette", "one film from everything you've loaded"],
                   [GREEN, "Movie night", "only films on both lists"],
-                  [RED, "Duel", "one from each list — the machine breaks the tie"],
+                  [BLUE, "Duel", "one from each list — the machine breaks the tie"],
                 ].map(([c, name, desc]) => (
                   <div key={name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: GROTESK, fontSize: 13, color: INK }}>
                     <span style={{ width: 7, height: 7, borderRadius: 1, background: c, flexShrink: 0, alignSelf: "center" }} />
@@ -1175,6 +1218,48 @@ export default function Videokisen() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Filmdetalj-popup — åpnes fra displayet */}
+        {showDetails && canOpenDetails && (
+          <div
+            className="overlay settled"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Details for ${picks[0].name}`}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowDetails(false); }}
+          >
+            <div className="overlay-card">
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+                <span style={{ minWidth: 0, fontFamily: GROTESK, fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
+                  {picks[0].name}
+                </span>
+                <Key small color="white" ref={detailsCloseRef} onClick={() => setShowDetails(false)} aria-label="Close">
+                  ✕
+                </Key>
+              </div>
+              <DetailsBody
+                film={picks[0]}
+                info={detailsFor(picks[0])}
+                whose={bothLoaded ? whose(picks[0]) : null}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Undo-toast — flyter over bunnen, dytter ingenting */}
+        {undo && (
+          <div className="toast settled" style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+            fontFamily: MONO, fontSize: 11, color: DIM,
+            background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 5, padding: "8px 12px",
+            boxShadow: "0 8px 20px -10px rgba(0,0,0,0.4)",
+          }}>
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Marked “{undo.name}” as seen
+            </span>
+            <button className="linkbtn" onClick={undoWatched} style={{ flexShrink: 0 }}>undo</button>
           </div>
         )}
       </main>

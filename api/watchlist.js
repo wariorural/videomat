@@ -9,12 +9,12 @@ const MAX_PAGES = 40; // ~1120 filmer — over det sier vi ærlig fra i UI-et
 
 function decodeEntities(s) {
   return s
-    .replace(/&amp;/g, "&")
     .replace(/&#0?39;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&nbsp;| /g, " ");
+    .replace(/&nbsp;| /g, " ")
+    .replace(/&amp;/g, "&"); // sist — ellers dobbel-dekodes escapede entiteter
 }
 
 function parseFilms(html) {

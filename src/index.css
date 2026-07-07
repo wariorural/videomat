@@ -47,7 +47,15 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  /* kjernepaletten — speiles av konstantene øverst i App.jsx (INK/PANEL/…);
+     endrer du her, endre der */
   --red: #dd5117; /* Braun-oransje: ett aksentpunkt for hele kabinettet */
+  --ink: #1c1b19;
+  --panel: #dddad2;
+  --panel-hi: #e9e7e0;
+  --panel-lo: #c9c6bd;
+  --page-bg: #b9b6ac;
+  --dim: #5d5a52;
 }
 
 * {
@@ -63,7 +71,7 @@ body,
 }
 
 body {
-  background: #b9b6ac;
+  background: var(--page-bg);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -129,11 +137,21 @@ input:focus-visible,
   }
 }
 
+/* placeholder på inntastingsfeltene: default-grå er ~2.5:1 på #CFCCC3 */
+.uname::placeholder {
+  color: var(--dim);
+  opacity: 1;
+}
+
 /* redigerbart navn: vis at det kan endres ved fokus */
 .rename:focus {
   border-color: rgba(28, 27, 25, 0.3) !important;
   background: rgba(255, 255, 255, 0.4) !important;
   outline: none;
+}
+.rename:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
 }
 
 /* liste-slots: alltid to kolonner; duell-vinduer stables på smal skjerm */
@@ -243,6 +261,16 @@ input:focus-visible,
   }
 }
 
+/* modus-tastene: mindre grad på smal skjerm så «Movie night» holder én linje */
+@media (max-width: 399px) {
+  .modes .key .cap {
+    font-size: 12px !important;
+    white-space: nowrap;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
 /* ── flip-liste: kompakt kort som roterer til redigering ──────── */
 .flip {
   flex: 1;
@@ -334,8 +362,8 @@ input:focus-visible,
 .overlay-card {
   width: 100%;
   max-width: 420px;
-  background: #e9e7e0;
-  border: 1px solid #c9c6bd;
+  background: var(--panel-hi);
+  border: 1px solid var(--panel-lo);
   border-radius: 6px;
   padding: 16px 18px 18px;
   box-shadow: 0 14px 34px -18px rgba(0, 0, 0, 0.5);
@@ -441,7 +469,7 @@ input:focus-visible,
 
 /* skallet: frostet, halvgjennomsiktig plast — dot-griden skimtes gjennom */
 .machine {
-  background: #dddad2;
+  background: var(--panel);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .machine {

@@ -277,7 +277,8 @@ function FlipSlot({ side, node, slot, accent, optional, attn, fetching, error, o
                 className="uname"
                 value={uname}
                 onChange={(e) => setUname(e.target.value)}
-                placeholder="letterboxd username"
+                placeholder="username…"
+                enterKeyHint="go"
                 autoCapitalize="none"
                 autoCorrect="off"
                 autoComplete="off"
@@ -431,7 +432,7 @@ function routeDown(x0, y0, x1, y1, c = 6) {
   ].join(" ");
 }
 
-function CircuitLayer() {
+function CircuitLayer({ dep }) {
   const ref = useRef(null);
   const [net, setNet] = useState(null);
 
@@ -480,7 +481,7 @@ function CircuitLayer() {
     const ro = new ResizeObserver(draw);
     ro.observe(root);
     return () => ro.disconnect();
-  }, []);
+  }, [dep]);
 
   return (
     <svg
@@ -609,7 +610,7 @@ export default function Videokisen() {
   const [b, setB] = useState(() => ({ ...EMPTY_SLOT, person: DEFAULT_PERSON.b, ...(saved?.b || {}) }));
   const [mode, setMode] = useState(saved?.mode || "all");
   const [noRepeat, setNoRepeat] = useState(saved?.noRepeat ?? true);
-  const [soundOn, setSoundOn] = useState(saved?.soundOn ?? true);
+  const [soundOn, setSoundOn] = useState(saved?.soundOn ?? false);
   const [excluded, setExcluded] = useState(() => new Set(saved?.excluded || []));
   const [fetching, setFetching] = useState({ a: false, b: false });
   const [errors, setErrors] = useState({ a: null, b: null });
@@ -627,6 +628,7 @@ export default function Videokisen() {
   const helpCloseRef = useRef(null);
   const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film snudd til detaljer, null = lukket
   const [lockHint, setLockHint] = useState(false);    // klikk på låst modus → forklaring i displayet
+  const [respin, setRespin] = useState(false);        // auto-spinn etter «Seen it»
   const lockHintTimer = useRef(null);
   const detailsAnchorRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
@@ -639,12 +641,16 @@ export default function Videokisen() {
   const timers = useRef([]);
   const landedRef = useRef(0);
 
-  const reducedMotion = useMemo(
-    () => typeof window !== "undefined" && window.matchMedia
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false,
-    []
+  const [reducedMotion, setReducedMotion] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
   );
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => () => clearTimeout(lockHintTimer.current), []);
@@ -919,6 +925,7 @@ export default function Videokisen() {
     clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(() => setUndo(null), 6000);
     resetRound();
+    setRespin(true); // «seen it» betyr «gi meg en annen» — spinn videre selv
   };
 
   const undoWatched = () => {
@@ -940,9 +947,8 @@ export default function Videokisen() {
 
   /* ── tekster for tomme tilstander ── */
 
-  const emptyText = !oneLoaded
-    ? "FETCH A LIST TO START"
-    : !bothLoaded && mode !== "all"
+  // (!oneLoaded dekkes av boot-skjermen i displayet)
+  const emptyText = !bothLoaded && mode !== "all"
       ? "ADD A SECOND LIST FOR THIS MODE"
       : mode === "date" && overlap.length === 0
         ? "NO SHARED FILMS — TRY ROULETTE"
@@ -972,6 +978,13 @@ export default function Videokisen() {
     if (detailsIdx !== null && !(picks[detailsIdx] && !spinning)) setDetailsIdx(null);
   }, [detailsIdx, picks, spinning]);
 
+  // auto-respinn etter «Seen it» — venter på at excluded har slått inn i poolene
+  useEffect(() => {
+    if (!respin) return;
+    setRespin(false);
+    if (canSpin && !spinning && !deciding) spin();
+  });
+
   return (
     <div className="page" style={{
       minHeight: "100%", backgroundColor: "#B9B6AC",
@@ -996,7 +1009,7 @@ export default function Videokisen() {
         position: "relative",
       }}>
         {/* clear-tech-lag: koblinger bakerst → lysdiffusjon → frost → gloss */}
-        <CircuitLayer />
+        <CircuitLayer dep={mode} />
         <div className="light-blob warm" aria-hidden="true" />
         <div className="light-blob cool" aria-hidden="true" />
         <div className="frost" />
@@ -1167,9 +1180,25 @@ export default function Videokisen() {
                   ADD LIST B TO UNLOCK
                 </span>
               ) : !canSpin && !shown ? (
-                <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
-                  {emptyText}
-                </span>
+                !oneLoaded ? (
+                  /* boot-skjerm: onboardingen bor i maskinens eget display */
+                  <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 16, textAlign: "left", maxWidth: 420 }}>
+                    {[
+                      ["1", "FETCH A LETTERBOXD WATCHLIST"],
+                      ["2", "ADD A FRIEND FOR MOVIE NIGHT & DUEL"],
+                      ["3", "SPIN — THE MACHINE DECIDES"],
+                    ].map(([n, t]) => (
+                      <div key={n} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: D_HI, flexShrink: 0 }}>{n}</span>
+                        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.1em", color: D_EMPTY, lineHeight: 1.6 }}>{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                    {emptyText}
+                  </span>
+                )
               ) : shown ? (
                 <>
                   <SplitFlapDisplay

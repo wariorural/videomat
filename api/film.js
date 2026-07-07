@@ -11,12 +11,12 @@ import { rateLimited, clientIp } from "./_ratelimit.js";
 
 function decodeEntities(s) {
   return s
-    .replace(/&amp;/g, "&")
     .replace(/&#0?39;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&nbsp;| /g, " ");
+    .replace(/&nbsp;| /g, " ")
+    .replace(/&amp;/g, "&"); // sist — ellers dobbel-dekodes escapede entiteter
 }
 
 export default async function handler(req, res) {

@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect, useCallback } from "react"
 import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, safeUri, FETCH_ERRORS } from "./lib/letterboxd.js";
 import { loadState, saveState } from "./lib/storage.js";
 import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
+import SplitFlapDisplay from "./SplitFlap.jsx";
 
 /* ─────────────────────────────────────────────────────────────
    VIDEOKISEN · en Braun-aktig maskin for to filmlister
@@ -12,7 +13,7 @@ const INK = "#1C1B19";
 const PANEL = "#DDDAD2";
 const PANEL_HI = "#E9E7E0";
 const PANEL_LO = "#C9C6BD";
-const RED = "#D8442A";        // Braun-rød, primær handling
+const RED = "#DD5117";        // Braun-oransje, primær handling + eneste aksent
 const ERROR = "#A8321A";      // mørkere rød for feiltekst (AA-kontrast på panel)
 const ORANGE = "#FF8000";     // Letterboxd oransje = liste A
 const GREEN = "#00C64A";      // Letterboxd grønn = overlapp
@@ -26,6 +27,8 @@ const D_EMPTY = "#8a8880";    // tomtilstand
 
 const MONO = "'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace";
 const GROTESK = "'Helvetica Neue','Inter',Helvetica,Arial,sans-serif";
+// dot-matrix (à la Nothing) — KUN mikroetiketter; trenger større grad + tracking for lesbarhet
+const DOT = "'Doto','JetBrains Mono',ui-monospace,monospace";
 
 const MODES = [
   { id: "all", label: "Roulette", sub: "the whole pool", dot: INK },
@@ -86,7 +89,7 @@ function UploadSlot({ side, slot, accent, optional, fetching, error, onFile, onF
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ width: 9, height: 9, borderRadius: "50%", background: accent, display: "inline-block", flexShrink: 0 }} />
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.14em", color: DIM, textTransform: "uppercase" }}>
+        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.16em", color: DIM, textTransform: "uppercase" }}>
           {side}
         </span>
       </div>
@@ -311,6 +314,88 @@ function DuelWindow({ label, accent, film, info, rolling, isWinner, isLoser, fla
   );
 }
 
+/* ── kobber/PCB-lag: svakt synlige kretskort-spor bak alt ─────── */
+
+function PcbLayer() {
+  return (
+    <svg className="pcb" viewBox="0 0 200 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      {/* spor rutet som ekte PCB: 45°-knekk, aldri rette hjørner */}
+      <g fill="none" stroke="#b0742f" strokeWidth="1.2">
+        <path d="M12 24 H58 L70 36 V52 L78 60 H120" />
+        <path d="M188 40 H158 L150 48 V88 L142 96 H96" />
+        <path d="M20 120 H70 L80 130 V150" />
+        <path d="M180 150 H120 L110 140 V120" />
+        <path d="M12 210 H50 L60 220 V240 L70 250 H130 L140 240 V220 L150 210 H188" />
+        <path d="M30 288 V240 L40 230 H90" />
+        <path d="M100 12 V36 L108 44" />
+        <path d="M150 300 V270 L160 260 H188" />
+      </g>
+      {/* vias */}
+      <g fill="#c08a4a">
+        <circle cx="120" cy="60" r="2.6" /><circle cx="96" cy="96" r="2.6" />
+        <circle cx="80" cy="150" r="2.6" /><circle cx="110" cy="120" r="2.6" />
+        <circle cx="90" cy="230" r="2.6" /><circle cx="108" cy="44" r="2.6" />
+      </g>
+      {/* SMD-pad-par (små komponentfotavtrykk) */}
+      <g fill="#c08a4a">
+        <rect x="98" y="134" width="5" height="7" rx="0.8" /><rect x="107" y="134" width="5" height="7" rx="0.8" />
+        <rect x="160" y="146" width="7" height="5" rx="0.8" /><rect x="160" y="155" width="7" height="5" rx="0.8" />
+        <rect x="24" y="252" width="5" height="7" rx="0.8" /><rect x="33" y="252" width="5" height="7" rx="0.8" />
+      </g>
+    </svg>
+  );
+}
+
+/* ── detaljstripe under displayet (enkeltmodus) ───────────────── */
+
+function SingleDetails({ film, info, whose }) {
+  const hasBody = info && (info.director || info.genres?.length > 0 || info.synopsis);
+  return (
+    <div className="settled" style={{
+      display: "flex", gap: 14, alignItems: "flex-start",
+      marginTop: 10, padding: "12px 14px",
+      background: PANEL_HI, border: `1px solid ${PANEL_LO}`, borderRadius: 6,
+    }}>
+      {info?.poster && (
+        <img
+          src={info.poster} alt="" referrerPolicy="no-referrer" className="poster-fade"
+          style={{
+            width: 58, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 4,
+            flexShrink: 0, background: "#cfccc3", boxShadow: "0 3px 10px -5px rgba(0,0,0,0.5)",
+          }}
+        />
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {hasBody && (info.director || info.genres?.length > 0) && (
+          <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, lineHeight: 1.4 }}>
+            {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
+              .filter(Boolean).join(" — ")}
+          </div>
+        )}
+        {info?.synopsis && (
+          <p style={{ margin: hasBody ? "6px 0 0" : 0, fontFamily: GROTESK, fontSize: 12.5, lineHeight: 1.5, color: INK }}>
+            {info.synopsis}
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 9, flexWrap: "wrap" }}>
+          {whose && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: DIM }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: whose.color }} />
+              {whose.label}
+            </span>
+          )}
+          {film.uri && (
+            <a href={film.uri} target="_blank" rel="noreferrer"
+              style={{ fontFamily: MONO, fontSize: 11, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
+              Letterboxd ↗
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── selve maskinen ───────────────────────────────────────────── */
 
 export default function Videokisen() {
@@ -328,6 +413,8 @@ export default function Videokisen() {
   const [picks, setPicks] = useState([null, null]);
   const [displays, setDisplays] = useState([null, null]);
   const [spinning, setSpinning] = useState(false);
+  const [spinKey, setSpinKey] = useState(0);   // bumpes per spinn → trigger flap-flutter
+  const pendingTarget = useRef(null);           // filmen flappene lander på (enkeltmodus)
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
@@ -528,17 +615,30 @@ export default function Videokisen() {
       scheduleRoll(1, 27, b.films, tB, 2, false); // lander litt etter — drama
     } else {
       const target = rand(poolSingle);
+      pendingTarget.current = target;
       if (reducedMotion) {
         setDisplays([target, null]);
         setPicks([target, null]);
         clunk();
         return;
       }
+      // Målet settes med én gang som tekst; SplitFlapDisplay flakser fram til
+      // det og kaller onFlapSettle når raden har roet seg (den eier timingen).
+      setDisplays([target, null]);
       setSpinning(true);
-      landedRef.current = 0;
-      scheduleRoll(0, 26, mode === "date" ? overlap : union, target, 1, true);
+      setSpinKey((k) => k + 1);
     }
   };
+
+  // enkeltmodus: flap-raden har landet → sett resultatet, hent detaljer
+  const onFlapSettle = useCallback(() => {
+    const target = pendingTarget.current;
+    if (!target) return;
+    setPicks([target, null]);
+    setSpinning(false);
+    clunk();
+    buzz([26, 30, 22]);
+  }, []);
 
   /* ── tie-break: highlighten hopper mellom vinduene og bremser ── */
 
@@ -626,7 +726,7 @@ export default function Videokisen() {
 
   return (
     <div className="page" style={{
-      minHeight: "100%", background: "#B9B6AC",
+      minHeight: "100%", backgroundColor: "#B9B6AC",
       fontFamily: GROTESK, color: INK,
       display: "flex", justifyContent: "center",
     }}>
@@ -639,6 +739,11 @@ export default function Videokisen() {
         overflow: "hidden",
         position: "relative",
       }}>
+        {/* clear-tech-lag: PCB bakerst → frostet skall → gloss */}
+        <PcbLayer />
+        <div className="frost" />
+        <div className="machine-gloss" />
+        <div style={{ position: "relative", zIndex: 1 }}>
         {/* Topplinje */}
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -646,11 +751,13 @@ export default function Videokisen() {
         }}>
           <div>
             <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videokisen</h1>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, letterSpacing: "0.1em", marginTop: 5 }}>
+            <div style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: DIM, letterSpacing: "0.13em", marginTop: 5 }}>
               ONE SPIN · ONE FILM
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Nothing-signaturen: én liten firkant i aksentfargen, ellers ingenting */}
+            <span aria-hidden="true" style={{ width: 6, height: 6, background: RED, flexShrink: 0 }} />
             <div style={{ display: "flex", gap: 5 }} aria-hidden="true">
               <Dot c={ORANGE} /><Dot c={GREEN} /><Dot c={BLUE} />
             </div>
@@ -659,7 +766,7 @@ export default function Videokisen() {
               className="press"
               onClick={() => setSoundOn(!soundOn)}
               aria-pressed={soundOn}
-              style={{ ...ghostBtn, fontSize: 10, padding: "7px 9px", minHeight: 30 }}
+              style={{ ...ghostBtn, fontFamily: DOT, fontWeight: 900, fontSize: 12, letterSpacing: "0.1em", padding: "7px 9px", minHeight: 30 }}
             >
               sound {soundOn ? "on" : "off"}
             </button>
@@ -748,63 +855,51 @@ export default function Videokisen() {
               )}
             </div>
           ) : (
-            <div style={{
-              background: INK, borderRadius: 6, padding: "26px 22px",
-              minHeight: 172, display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center", textAlign: "center",
-              position: "relative", overflow: "hidden",
-            }}>
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,0.06), transparent 60%)",
-                pointerEvents: "none",
-              }} />
-              {!canSpin && !shown ? (
-                <span style={{ color: D_EMPTY, fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
-                  {emptyText}
-                </span>
-              ) : shown ? (
-                <div className={landed ? "settled" : ""} style={{ width: "100%" }}>
-                  {landed && detailsFor(picks[0]) ? (
-                    <FilmCard film={picks[0]} info={detailsFor(picks[0])} big />
-                  ) : (
-                    <div className={`title-display${spinning ? " rolling" : ""}`} style={{ textAlign: "center" }}>
-                      <div className="balance" style={{
-                        fontFamily: GROTESK, fontWeight: 700, color: "#F5F3EC",
-                        fontSize: "clamp(28px, 8vw, 46px)", lineHeight: 1.02, letterSpacing: "-0.025em",
-                        overflowWrap: "break-word",
+            <div>
+              <div className="display-module" style={{
+                minHeight: 168, padding: "30px 20px", display: "flex",
+                flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+              }}>
+                {!canSpin && !shown ? (
+                  <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                    {emptyText}
+                  </span>
+                ) : shown ? (
+                  <>
+                    <SplitFlapDisplay
+                      text={(displays[0] || picks[0])?.name || ""}
+                      spinning={spinning}
+                      spinKey={spinKey}
+                      landed={landed}
+                      onSettle={onFlapSettle}
+                    />
+                    {shown.year && (
+                      <div style={{
+                        position: "relative", zIndex: 1, marginTop: 15,
+                        fontFamily: MONO, fontSize: 12, letterSpacing: "0.14em", color: D_HI,
                       }}>
-                        {shown.name}
+                        {landed
+                          ? [shown.year,
+                             detailsFor(picks[0])?.runtime ? `${detailsFor(picks[0]).runtime} MIN` : null,
+                             detailsFor(picks[0])?.rating ? `★ ${detailsFor(picks[0]).rating}` : null,
+                            ].filter(Boolean).join("  ·  ")
+                          : shown.year}
                       </div>
-                      {shown.year && (
-                        <div style={{ fontFamily: MONO, fontSize: 13, color: D_HI, marginTop: 8 }}>{shown.year}</div>
-                      )}
-                    </div>
-                  )}
-                  {landed && (() => {
-                    const w = whose(picks[0]);
-                    return (
-                      <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", justifyContent: "center" }}>
-                        {bothLoaded && (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#c3c1b8" }}>
-                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: w.color }} />
-                            {w.label}
-                          </span>
-                        )}
-                        {picks[0].uri && (
-                          <a href={picks[0].uri} target="_blank" rel="noreferrer"
-                            style={{ fontFamily: MONO, fontSize: 11, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
-                            Letterboxd ↗
-                          </a>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              ) : (
-                <span style={{ color: D_EMPTY, fontFamily: MONO, fontSize: 12.5, letterSpacing: "0.06em" }}>
-                  READY · PRESS SPIN
-                </span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                    READY · PRESS SPIN
+                  </span>
+                )}
+              </div>
+
+              {landed && (detailsFor(picks[0]) || picks[0].uri) && (
+                <SingleDetails
+                  film={picks[0]}
+                  info={detailsFor(picks[0])}
+                  whose={bothLoaded ? whose(picks[0]) : null}
+                />
               )}
             </div>
           )}
@@ -903,6 +998,7 @@ export default function Videokisen() {
               <span style={{ fontFamily: MONO, fontSize: 11, color: DIM }}>no repeats</span>
             </button>
           </div>
+        </div>
         </div>
       </main>
     </div>

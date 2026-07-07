@@ -224,43 +224,42 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
               </div>
             </>
           ) : (
-            <>
-              <form
-                onSubmit={(e) => { e.preventDefault(); if (uname.trim()) onFetch(uname.trim()); }}
-                style={{ display: "flex", gap: 7 }}
-              >
-                <input
-                  ref={inputRef}
-                  className="uname"
-                  value={uname}
-                  onChange={(e) => setUname(e.target.value)}
-                  placeholder="letterboxd user"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                  name={`user-${side}`}
-                  aria-label="Letterboxd username"
-                  tabIndex={flipped ? 0 : -1}
-                  style={{
-                    flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
-                    background: "#CFCCC3", border: "1px solid rgba(28,27,25,0.18)",
-                    borderRadius: 3, padding: "5px 9px",
-                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
-                  }}
-                />
-                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1}>
+            <form
+              onSubmit={(e) => { e.preventDefault(); if (uname.trim()) onFetch(uname.trim()); }}
+              style={{ display: "flex", flexDirection: "column", gap: 6 }}
+            >
+              {/* input får hele bredden — tastene bor på egen rad under */}
+              <input
+                ref={inputRef}
+                className="uname"
+                value={uname}
+                onChange={(e) => setUname(e.target.value)}
+                placeholder="letterboxd username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                name={`user-${side}`}
+                aria-label="Letterboxd username"
+                tabIndex={flipped ? 0 : -1}
+                style={{
+                  width: "100%", minWidth: 0, fontFamily: MONO, fontSize: 16, color: INK,
+                  background: "#CFCCC3", border: "1px solid rgba(28,27,25,0.18)",
+                  borderRadius: 3, padding: "4px 9px",
+                  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
+                }}
+              />
+              <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>
                   {fetching ? "…" : "fetch"}
                 </Key>
-              </form>
-              <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-                <Key small color="white" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1}>csv</Key>
-                <span role={error ? "alert" : undefined} style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 10.5, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {error || "or drop watchlist.csv here"}
-                </span>
-                <Key small color="white" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
+                <Key small color="white" type="button" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1}>csv</Key>
+                <Key small color="white" type="button" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
               </div>
-            </>
+              <span role={error ? "alert" : undefined} style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {error || "or drop watchlist.csv here"}
+              </span>
+            </form>
           )}
         </div>
       </div>
@@ -276,82 +275,93 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
   );
 }
 
-/* ── duell-vindu: kompakt split-flap, fast høyde, klikkbar ────── */
+/* ── duell-vindu: flipbox — fronten flakser, baksiden er detaljer ── */
 
-function DuelWindow({ label, accent, film, spinning, spinKey, landed, delay, onSettle, isWinner, isLoser, flashing, canOpen, onOpen }) {
+function DuelWindow({ label, accent, film, info, spinning, spinKey, landed, delay, onSettle, isWinner, isLoser, flashing, canOpen, onOpen, flipped, onClose }) {
   return (
     <div
-      className={`duel-win${flashing ? " flash" : ""}${isLoser ? " loser" : ""}${isWinner ? " winner" : ""}`}
-      {...(canOpen ? {
-        role: "button",
-        tabIndex: 0,
-        "aria-label": `Details for ${film.name}`,
-        onClick: onOpen,
-        onKeyDown: (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(e); }
-        },
-      } : {})}
-      style={{
-        flex: 1, background: INK, borderRadius: 6,
-        padding: "30px 12px 16px",
-        height: 148, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", textAlign: "center",
-        position: "relative", overflow: "hidden", minWidth: 0,
-        cursor: canOpen ? "pointer" : "default",
-      }}
+      className={`flipbox duel-win${flipped ? " flipped" : ""}${flashing ? " flash" : ""}${isLoser ? " loser" : ""}${isWinner ? " winner" : ""}`}
+      style={{ flex: 1, minWidth: 0, height: 148, borderRadius: 6 }}
     >
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,0.06), transparent 60%)",
-        pointerEvents: "none",
-      }} />
-      {/* topp-etikett — bytter til WINNER-stempel når kortet vinner */}
-      {film && (
-        <div style={{
-          position: "absolute", top: isWinner ? 6 : 9, left: 0, right: 0,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-        }}>
-          {isWinner ? (
-            <span className="stamp" style={{
-              border: `2px solid ${RED}`, color: RED, borderRadius: 3,
-              fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
-              padding: "2px 12px 1px",
-            }}>
-              WINNER
-            </span>
-          ) : (
-            <>
-              <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: D_LABEL, textTransform: "uppercase" }}>
+      <div className="flip-inner">
+        <div
+          className="flip-face"
+          {...(canOpen ? {
+            role: "button",
+            tabIndex: flipped ? -1 : 0,
+            "aria-label": `Details for ${film.name}`,
+            onClick: onOpen,
+            onKeyDown: (e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(e); }
+            },
+          } : {})}
+          style={{ cursor: canOpen ? "pointer" : "default" }}
+        >
+          {/* indre wrapper klipper (facen selv kan ikke ha overflow:hidden) */}
+          <div style={{
+            position: "absolute", inset: 0, overflow: "hidden", borderRadius: 6,
+            background: INK, padding: "30px 12px 16px",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", textAlign: "center",
+          }}>
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,0.06), transparent 60%)",
+              pointerEvents: "none",
+            }} />
+            {/* topp-etikett — bytter til WINNER-stempel når kortet vinner */}
+            {film && (
+              <div style={{
+                position: "absolute", top: isWinner ? 6 : 9, left: 0, right: 0,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              }}>
+                {isWinner ? (
+                  <span className="stamp" style={{
+                    border: `2px solid ${RED}`, color: RED, borderRadius: 3,
+                    fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+                    padding: "2px 12px 1px",
+                  }}>
+                    WINNER
+                  </span>
+                ) : (
+                  <>
+                    <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
+                    <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: D_LABEL, textTransform: "uppercase" }}>
+                      {label}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+            {film ? (
+              <>
+                <SplitFlapDisplay
+                  text={film.name}
+                  spinning={spinning}
+                  spinKey={spinKey}
+                  landed={landed}
+                  onSettle={onSettle}
+                  compact
+                  delay={delay}
+                />
+                {film.year && (
+                  <div style={{ position: "relative", zIndex: 1, fontFamily: MONO, fontSize: 11, letterSpacing: "0.12em", color: D_HI, marginTop: 9 }}>
+                    {film.year}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: D_LABEL, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
                 {label}
               </span>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      )}
-      {film ? (
-        <>
-          <SplitFlapDisplay
-            text={film.name}
-            spinning={spinning}
-            spinKey={spinKey}
-            landed={landed}
-            onSettle={onSettle}
-            compact
-            delay={delay}
-          />
-          {film.year && (
-            <div style={{ position: "relative", zIndex: 1, fontFamily: MONO, fontSize: 11, letterSpacing: "0.12em", color: D_HI, marginTop: 9 }}>
-              {film.year}
-            </div>
-          )}
-        </>
-      ) : (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: D_LABEL, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          <span style={{ width: 7, height: 7, borderRadius: 1, background: accent }} />
-          {label}
-        </span>
-      )}
+        {film && (
+          <DetailsBack flipped={flipped} film={film} info={info} whose={null} tight onClose={onClose} />
+        )}
+      </div>
     </div>
   );
 }
@@ -451,47 +461,75 @@ function CircuitLayer() {
   );
 }
 
-/* ── filmdetaljer i popup (åpnes ved klikk på displayet) ────────── */
+/* ── baksiden av «arket»: filmdetaljer der displayet var ───────── */
 
-function DetailsBody({ film, info, whose }) {
+function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
   const facts = [film.year, info?.runtime ? `${info.runtime} min` : null, info?.rating ? `★ ${info.rating}` : null]
     .filter(Boolean).join(" · ");
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-      {info?.poster && (
-        <img
-          src={info.poster} alt="" referrerPolicy="no-referrer" className="poster-fade"
-          style={{
-            width: 86, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 4,
-            flexShrink: 0, background: "#cfccc3", boxShadow: "0 3px 10px -5px rgba(0,0,0,0.5)",
-          }}
-        />
-      )}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        {facts && (
-          <div style={{ fontFamily: MONO, fontSize: 11.5, color: DIM }}>{facts}</div>
-        )}
-        {info && (info.director || info.genres?.length > 0) && (
-          <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, lineHeight: 1.4, marginTop: 3 }}>
-            {[info.director ? `dir. ${info.director}` : null, info.genres?.length ? info.genres.join(" · ") : null]
-              .filter(Boolean).join(" — ")}
+    <div
+      className="flip-face flip-back"
+      aria-hidden={!flipped}
+      style={{
+        background: PANEL_HI,
+        border: `1px solid ${PANEL_LO}`,
+        borderRadius: 7,
+        boxShadow: "inset 0 1.5px 4px rgba(0,0,0,0.12)",
+      }}
+    >
+      {/* indre wrapper klipper — selve facen kan ikke ha overflow:hidden (3D) */}
+      <div style={{
+        position: "absolute", inset: 0, overflow: "hidden", borderRadius: 7,
+        padding: tight ? "9px 11px" : "13px 16px",
+        display: "flex", flexDirection: "column", gap: tight ? 4 : 7, textAlign: "left",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: GROTESK, fontSize: tight ? 14 : 17, fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
+            {film.name}
+          </span>
+          <Key small color="white" type="button" onClick={onClose} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
+        </div>
+        <div style={{ display: "flex", gap: tight ? 9 : 12, flex: 1, minHeight: 0 }}>
+          {info?.poster && (
+            <img
+              src={info.poster} alt="" referrerPolicy="no-referrer" className="poster-fade"
+              style={{
+                width: tight ? 46 : 76, aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 3,
+                flexShrink: 0, background: "#cfccc3", boxShadow: "0 3px 10px -5px rgba(0,0,0,0.5)", alignSelf: "flex-start",
+              }}
+            />
+          )}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {(facts || info?.director) && (
+              <div style={{ fontFamily: MONO, fontSize: tight ? 10 : 11, color: DIM, lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {[facts, info?.director ? `dir. ${info.director}` : null].filter(Boolean).join(" — ")}
+              </div>
+            )}
+            {!tight && info?.genres?.length > 0 && (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {info.genres.join(" · ")}
+              </div>
+            )}
+            {info?.synopsis && (
+              <p style={{
+                margin: tight ? "3px 0 0" : "6px 0 0", fontFamily: GROTESK, fontSize: tight ? 11.5 : 12.5, lineHeight: 1.45, color: INK,
+                display: "-webkit-box", WebkitLineClamp: tight ? 3 : 5, WebkitBoxOrient: "vertical", overflow: "hidden",
+              }}>
+                {info.synopsis}
+              </p>
+            )}
           </div>
-        )}
-        {info?.synopsis && (
-          <p style={{ margin: "8px 0 0", fontFamily: GROTESK, fontSize: 13, lineHeight: 1.55, color: INK }}>
-            {info.synopsis}
-          </p>
-        )}
-        <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
           {whose && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: DIM }}>
-              <span style={{ width: 8, height: 8, borderRadius: 1, background: whose.color }} />
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 10.5, color: DIM }}>
+              <span style={{ width: 7, height: 7, borderRadius: 1, background: whose.color }} />
               {whose.label}
             </span>
           )}
           {film.uri && (
-            <a href={film.uri} target="_blank" rel="noreferrer"
-              style={{ fontFamily: MONO, fontSize: 11, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
+            <a href={film.uri} target="_blank" rel="noreferrer" tabIndex={flipped ? 0 : -1}
+              style={{ fontFamily: MONO, fontSize: 10.5, color: BLUE, textDecoration: "none", borderBottom: `1px solid ${BLUE}` }}>
               Letterboxd ↗
             </a>
           )}
@@ -524,11 +562,8 @@ export default function Videokisen() {
   const [showHelp, setShowHelp] = useState(false);
   const helpBtnRef = useRef(null);
   const helpCloseRef = useRef(null);
-  const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film i popup, null = lukket
-  const [detailsTop, setDetailsTop] = useState(12);   // popup ankres til feltet som ble klikket
-  const detailsCloseRef = useRef(null);
+  const [detailsIdx, setDetailsIdx] = useState(null); // 0/1 = film snudd til detaljer, null = lukket
   const detailsAnchorRef = useRef(null);
-  const machineRef = useRef(null);
   const [deciding, setDeciding] = useState(false);
   const [winner, setWinner] = useState(null); // 0 | 1 | null
   const [flash, setFlash] = useState(null);   // vindu som lyser under tie-break
@@ -561,13 +596,16 @@ export default function Videokisen() {
     };
   }, [showHelp]);
 
-  // detalj-popup: Escape lukker, fokus inn og tilbake til feltet som åpnet
+  // detalj-flip: Escape snur tilbake; fokus inn på ✕ og tilbake til feltet
   useEffect(() => {
     if (detailsIdx === null) return;
-    detailsCloseRef.current?.focus();
+    const t = setTimeout(() => {
+      document.querySelector(".flipbox.flipped .flip-back button")?.focus();
+    }, 340);
     const onKey = (e) => { if (e.key === "Escape") setDetailsIdx(null); };
     window.addEventListener("keydown", onKey);
     return () => {
+      clearTimeout(t);
       window.removeEventListener("keydown", onKey);
       detailsAnchorRef.current?.focus?.();
     };
@@ -847,14 +885,9 @@ export default function Videokisen() {
   const canOpen = (idx) => !spinning && !!picks[idx] && !!(detailsFor(picks[idx]) || picks[idx]?.uri);
   const canOpenDetails = !isDuel && canOpen(0);
 
-  // popup ankres til feltet som ble klikket (topp relativt til maskinen)
+  // «snu arket»: feltet flipper til detaljene sine
   const openDetails = (idx) => (e) => {
-    const el = e.currentTarget;
-    const m = machineRef.current;
-    if (m && el) {
-      setDetailsTop(Math.max(12, el.getBoundingClientRect().top - m.getBoundingClientRect().top));
-      detailsAnchorRef.current = el;
-    }
+    detailsAnchorRef.current = e.currentTarget;
     setDetailsIdx(idx);
   };
 
@@ -878,7 +911,7 @@ export default function Videokisen() {
           Maskinen har FAST høyde: flip-lister, statuslinje og display
           er faste; detaljer og undo bor i popup/toast.
           ───────────────────────────────────────────────────────── */}
-      <main className="machine" ref={machineRef} style={{
+      <main className="machine" style={{
         width: "100%", maxWidth: 560, alignSelf: "flex-start",
         border: `1px solid ${PANEL_LO}`,
         borderRadius: 8,
@@ -992,11 +1025,13 @@ export default function Videokisen() {
             <div className="duel">
               <DuelWindow
                 label={a.person} accent={ORANGE} film={displays[0]}
+                info={detailsFor(picks[0])}
                 spinning={spinning} spinKey={spinKey} landed={!!picks[0] && !spinning}
                 delay={0} onSettle={() => onDuelSettle(0)}
                 isWinner={winner === 0} isLoser={winner === 1}
                 flashing={flash === 0}
                 canOpen={canOpen(0)} onOpen={openDetails(0)}
+                flipped={detailsIdx === 0} onClose={() => setDetailsIdx(null)}
               />
               <div className="duel-vs" aria-hidden="true" style={{
                 alignSelf: "center", flexShrink: 0,
@@ -1010,33 +1045,38 @@ export default function Videokisen() {
               </div>
               <DuelWindow
                 label={b.person} accent={BLUE} film={displays[1]}
+                info={detailsFor(picks[1])}
                 spinning={spinning} spinKey={spinKey} landed={!!picks[1] && !spinning}
                 delay={520} onSettle={() => onDuelSettle(1)}
                 isWinner={winner === 1} isLoser={winner === 0}
                 flashing={flash === 1}
                 canOpen={canOpen(1)} onOpen={openDetails(1)}
+                flipped={detailsIdx === 1} onClose={() => setDetailsIdx(null)}
               />
             </div>
           ) : (
-            <div
-              className="display-module"
-              /* landet display = knapp som åpner filmdetaljene */
-              {...(canOpenDetails ? {
-                role: "button",
-                tabIndex: 0,
-                "aria-label": `Details for ${picks[0].name}`,
-                onClick: openDetails(0),
-                onKeyDown: (e) => {
-                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetails(0)(e); }
-                },
-              } : {})}
-              style={{
-                /* FAST høyde — rommer to flap-linjer; 1-linjers sentreres */
-                height: 208, padding: "26px 20px 30px", display: "flex",
-                flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
-                cursor: canOpenDetails ? "pointer" : "default",
-              }}
-            >
+            /* FAST høyde — rommer to flap-linjer; «snur arket» til detaljer */
+            <div className={`flipbox${!isDuel && detailsIdx === 0 ? " flipped" : ""}`} style={{ height: 208 }}>
+              <div className="flip-inner">
+              <div className="flip-face">
+              <div
+                className="display-module"
+                /* landet display = knapp som snur arket til filmdetaljene */
+                {...(canOpenDetails ? {
+                  role: "button",
+                  tabIndex: detailsIdx === 0 ? -1 : 0,
+                  "aria-label": `Details for ${picks[0].name}`,
+                  onClick: openDetails(0),
+                  onKeyDown: (e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetails(0)(e); }
+                  },
+                } : {})}
+                style={{
+                  height: "100%", padding: "26px 20px 30px", display: "flex",
+                  flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+                  cursor: canOpenDetails ? "pointer" : "default",
+                }}
+              >
               {!canSpin && !shown ? (
                 <span style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
                   {emptyText}
@@ -1077,6 +1117,18 @@ export default function Videokisen() {
                   READY · PRESS SPIN
                 </span>
               )}
+              </div>
+              </div>
+              {picks[0] && (
+                <DetailsBack
+                  flipped={!isDuel && detailsIdx === 0}
+                  film={picks[0]}
+                  info={detailsFor(picks[0])}
+                  whose={bothLoaded ? whose(picks[0]) : null}
+                  onClose={() => setDetailsIdx(null)}
+                />
+              )}
+              </div>
             </div>
           )}
         </div>
@@ -1183,41 +1235,6 @@ export default function Videokisen() {
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Filmdetalj-popup — forankret over feltet som ble klikket */}
-        {detailsIdx !== null && picks[detailsIdx] && (
-          <div
-            className="overlay settled"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Details for ${picks[detailsIdx].name}`}
-            onClick={(e) => { if (e.target === e.currentTarget) setDetailsIdx(null); }}
-          >
-            <div className="overlay-card" style={{
-              position: "absolute",
-              top: detailsTop,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "calc(100% - 36px)",
-              maxHeight: `calc(100% - ${detailsTop + 14}px)`,
-              overflowY: "auto",
-            }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-                <span style={{ minWidth: 0, fontFamily: GROTESK, fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
-                  {picks[detailsIdx].name}
-                </span>
-                <Key small color="white" ref={detailsCloseRef} onClick={() => setDetailsIdx(null)} aria-label="Close">
-                  ✕
-                </Key>
-              </div>
-              <DetailsBody
-                film={picks[detailsIdx]}
-                info={detailsFor(picks[detailsIdx])}
-                whose={!isDuel && bothLoaded ? whose(picks[detailsIdx]) : null}
-              />
             </div>
           </div>
         )}

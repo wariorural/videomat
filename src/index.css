@@ -226,8 +226,13 @@ input:focus-visible {
 .flip {
   flex: 1;
   min-width: 0;
-  height: 96px;
+  height: 104px;
   perspective: 700px;
+  position: relative;
+}
+/* generisk «snu arket»-boks: display og duell-vinduer flipper til detaljer */
+.flipbox {
+  perspective: 900px;
   position: relative;
 }
 .flip-inner {
@@ -236,7 +241,8 @@ input:focus-visible {
   transform-style: preserve-3d;
   transition: transform 320ms var(--ease-in-out);
 }
-.flip.flipped .flip-inner {
+.flip.flipped .flip-inner,
+.flipbox.flipped .flip-inner {
   transform: rotateY(180deg);
 }
 /* NB: ingen overflow:hidden her — det flater ut 3D-konteksten og

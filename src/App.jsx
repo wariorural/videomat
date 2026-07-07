@@ -1006,7 +1006,13 @@ export default function Videomat() {
           padding: "16px 18px 14px", borderBottom: `1px solid ${PANEL_LO}`,
         }}>
           <div>
-            <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
+              {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
+              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
+                BY PART
+              </a>
+            </div>
             <div style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: DIM, letterSpacing: "0.13em", marginTop: 5 }}>
               ONE SPIN · ONE FILM
             </div>
@@ -1128,7 +1134,7 @@ export default function Videomat() {
             </div>
           ) : (
             /* FAST høyde — rommer to flap-linjer; «snur arket» til detaljer */
-            <div className={`flipbox${!isDuel && detailsIdx === 0 ? " flipped" : ""}`} style={{ height: 264 }}>
+            <div className={`flipbox display-flip${!isDuel && detailsIdx === 0 ? " flipped" : ""}`}>
               <div className="flip-inner">
               <div className="flip-face">
               <div
@@ -1300,16 +1306,6 @@ export default function Videomat() {
         )}
       </main>
 
-      <footer style={{ marginTop: 16 }}>
-        <a
-          href="https://part.no"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bypart"
-        >
-          MADE BY PART <span aria-hidden="true">→</span>
-        </a>
-      </footer>
     </div>
   );
 }

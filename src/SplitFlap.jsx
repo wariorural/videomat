@@ -81,6 +81,11 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
   // auto-scale: mål naturlig bredde, krymp hele raden mot containeren.
   // transform: scale() endrer ikke layout-bredden (scrollWidth), så målingen
   // er stabil uansett gjeldende skala.
+  // NB: avheng av GRIDET (det som faktisk rendres), ikke `lines` — ved
+  // «Spin again» ligger gridet ett steg bak lines, og en måling på gammelt
+  // (kortere) grid ga scale=1 som aldri ble korrigert → lange titler
+  // fløt ut av displayet.
+  const widest = Math.max(1, ...grid.map((r) => r.length));
   useLayoutEffect(() => {
     const measure = () => {
       const w = wrapRef.current, r = rowRef.current;
@@ -92,7 +97,7 @@ export default function SplitFlapDisplay({ text, spinning, spinKey, landed, onSe
     const ro = new ResizeObserver(measure);
     if (wrapRef.current) ro.observe(wrapRef.current);
     return () => ro.disconnect();
-  }, [lines]);
+  }, [widest, grid.length]);
 
   // flutter ved hver spinn (spinKey bumpes utenfra): ÉN rAF-driver som
   // samler alle celleendringer i ett setGrid per takt — memoiserte Flap-kort

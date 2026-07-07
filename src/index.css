@@ -95,6 +95,12 @@ input {
   padding-right: max(16px, env(safe-area-inset-right));
   padding-bottom: max(40px, env(safe-area-inset-bottom));
 }
+@media (max-width: 519px) {
+  .page {
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
 
 button:focus-visible,
 input:focus-visible,
@@ -284,6 +290,17 @@ input:focus-visible,
   perspective: 900px;
   position: relative;
 }
+/* hoveddisplayet: fast på desktop; på mobil klemmes det mot viewporten
+   så hele maskinen står uten scroll (duell er høyere og får scrolle) */
+.display-flip {
+  height: 264px;
+}
+@media (max-width: 519px) {
+  .display-flip {
+    height: clamp(200px, calc(100vh - 464px), 264px);
+    height: clamp(200px, calc(100dvh - 464px), 264px);
+  }
+}
 .flip-inner {
   position: absolute;
   inset: 0;
@@ -338,7 +355,7 @@ input:focus-visible,
   padding: 12px; /* 44px treffflate */
   font-family: "Doto", "JetBrains Mono", ui-monospace, monospace;
   font-weight: 900;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--dim);
   text-decoration: none;

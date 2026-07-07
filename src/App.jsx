@@ -92,6 +92,44 @@ function SpeakerIcon({ muted }) {
   );
 }
 
+/* ── småikoner til liste-tastene (14px, currentColor) ─────────── */
+
+function IconRefresh() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2" />
+      <path d="M13.4 1.8v2.8h-2.8" />
+    </svg>
+  );
+}
+
+function IconSwap() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 5.5h9M9.8 2.8 12.5 5.5 9.8 8.2" />
+      <path d="M13 10.5H4M6.2 7.8 3.5 10.5 6.2 13.2" />
+    </svg>
+  );
+}
+
+function IconFetch() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2.5v7M5 6.8 8 9.8l3-3" />
+      <path d="M3 12.8h10" />
+    </svg>
+  );
+}
+
+function IconFile() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 2h5l3 3v9h-8z" />
+      <path d="M9.5 2v3h3" />
+    </svg>
+  );
+}
+
 /* ── flip-liste: kompakt knapp som roterer til redigering ───────
    Fast høyde begge sider — maskinen vokser aldri. Fronten er én
    knapp (flipper); baksiden har input/FETCH/CSV eller rename/
@@ -213,11 +251,11 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
               </div>
               <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
                 {slot.username && (
-                  <Key small color="white" onClick={() => onFetch(slot.username)} disabled={fetching} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>
-                    {fetching ? "…" : "refresh"}
+                  <Key small color="white" onClick={() => onFetch(slot.username)} disabled={fetching} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }} aria-label="Refresh list" title="Refresh list">
+                    {fetching ? "…" : <IconRefresh />}
                   </Key>
                 )}
-                <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>change</Key>
+                <Key small color="white" onClick={onClear} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }} aria-label="Change list" title="Change list"><IconSwap /></Key>
               </div>
               <span style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: status ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {status || (slot.username ? `@${slot.username}` : slot.filename)}
@@ -250,10 +288,10 @@ function FlipSlot({ side, node, slot, accent, optional, fetching, error, onFile,
                 }}
               />
               <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }}>
-                  {fetching ? "…" : "fetch"}
+                <Key small color="ink" type="submit" disabled={fetching || !uname.trim()} tabIndex={flipped ? 0 : -1} style={{ flex: 1 }} aria-label="Fetch watchlist" title="Fetch watchlist">
+                  {fetching ? "…" : <IconFetch />}
                 </Key>
-                <Key small color="white" type="button" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1}>csv</Key>
+                <Key small color="white" type="button" onClick={() => fileRef.current && fileRef.current.click()} tabIndex={flipped ? 0 : -1} aria-label="Upload watchlist.csv" title="Upload watchlist.csv"><IconFile /></Key>
                 <Key small color="white" type="button" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
               </div>
               <span role={error ? "alert" : undefined} style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

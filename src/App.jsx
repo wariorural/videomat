@@ -301,7 +301,7 @@ function FlipSlot({ side, node, slot, accent, optional, attn, fetching, error, o
                 <Key small color="white" type="button" onClick={() => setFlipped(false)} aria-label="Close" tabIndex={flipped ? 0 : -1}>✕</Key>
               </div>
               <span role={error ? "alert" : undefined} style={{ fontFamily: MONO, fontSize: 10.5, lineHeight: 1, color: error ? ERROR : DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {error || "or drop watchlist.csv here"}
+                {error || "or drop a Letterboxd/IMDb CSV"}
               </span>
             </form>
           )}
@@ -1164,7 +1164,7 @@ export default function Videomat() {
                   /* boot-skjerm: onboardingen bor i maskinens eget display */
                   <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 16, textAlign: "left", maxWidth: 420 }}>
                     {[
-                      ["1", "FETCH A LETTERBOXD WATCHLIST"],
+                      ["1", "LOAD A LETTERBOXD OR IMDB WATCHLIST"],
                       ["2", "ADD A FRIEND FOR MOVIE NIGHT & DUEL"],
                       ["3", "SPIN — THE MACHINE DECIDES"],
                     ].map(([n, t]) => (

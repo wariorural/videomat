@@ -16,6 +16,11 @@ export function safeUri(raw) {
   return "";
 }
 
+/* IMDb-watchlister inneholder også serier/episoder/spill — dette er en
+   filmrulett, så bare film-aktige typer slipper inn. Normalisert uten
+   skilletegn fordi eksportformatet har variert ("tvMovie" vs "TV Movie"). */
+const FILM_TYPES = new Set(["movie", "tvmovie", "short", "video", "tvspecial"]);
+
 export function parseCsv(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -29,9 +34,15 @@ export function parseCsv(file) {
           // Letterboxd bruker "Name","Year","Letterboxd URI". Vær romslig.
           const name = r.Name || r.name || r.Title || r.title || "";
           if (!name) continue;
+          const type = (r["Title Type"] || "").toLowerCase().replace(/[^a-z]/g, "");
+          if (type && !FILM_TYPES.has(type)) continue;
           const year = (r.Year || r.year || "").toString().trim();
-          const uri = r["Letterboxd URI"] || r.URI || r.uri || "";
-          const f = { name: name.trim(), year, uri: safeUri(uri) };
+          let uri = safeUri(r["Letterboxd URI"] || r.URI || r.uri || "");
+          /* IMDb-eksporten har tt-id i "Const" — Letterboxd redirecter
+             /imdb/tt…/ til filmsida, så detalj-pipelinen virker uendret. */
+          const konst = (r.Const || "").trim();
+          if (!uri && /^tt\d+$/.test(konst)) uri = `https://letterboxd.com/imdb/${konst}/`;
+          const f = { name: name.trim(), year, uri };
           const k = keyOf(f);
           if (seen.has(k)) continue;
           seen.add(k);
@@ -71,5 +82,5 @@ export const FETCH_ERRORS = {
   empty: "That watchlist is empty or private",
   blocked: "Letterboxd didn't answer — upload the CSV instead",
   unknown: "Something went wrong — try again, or upload the CSV",
-  csv_empty: "No films in that file. Is it watchlist.csv from the Letterboxd export?",
+  csv_empty: "No films in that file. Is it a watchlist export from Letterboxd or IMDb?",
 };

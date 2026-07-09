@@ -21,6 +21,30 @@ export function safeUri(raw) {
    skilletegn fordi eksportformatet har variert ("tvMovie" vs "TV Movie"). */
 const FILM_TYPES = new Set(["movie", "tvmovie", "short", "video", "tvspecial"]);
 
+/* Letterboxds kanoniske sjangerliste — filterchipsene og all normalisering
+   deler denne, så en film fra IMDb-CSV og samme film skrapet fra Letterboxd
+   ender med identiske sjangernavn. */
+export const GENRES = [
+  "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
+  "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
+  "Romance", "Science Fiction", "Thriller", "TV Movie", "War", "Western",
+];
+
+const CANON = new Map(GENRES.map((g) => [g.toLowerCase(), g]));
+CANON.set("sci-fi", "Science Fiction");
+CANON.set("musical", "Music");
+
+/* IMDb-sjangre uten Letterboxd-motstykke (Biography, Sport, Film-Noir …)
+   droppes stille — filmen matcher via sine øvrige sjangre. */
+export function normalizeGenres(list) {
+  const out = [];
+  for (const raw of list || []) {
+    const g = CANON.get(String(raw).trim().toLowerCase());
+    if (g && !out.includes(g)) out.push(g);
+  }
+  return out;
+}
+
 export function parseCsv(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -43,6 +67,12 @@ export function parseCsv(file) {
           const konst = (r.Const || "").trim();
           if (!uri && /^tt\d+$/.test(konst)) uri = `https://letterboxd.com/imdb/${konst}/`;
           const f = { name: name.trim(), year, uri };
+          /* IMDb-eksporten har spilletid og sjangre — Letterboxd-CSV-en
+             mangler kolonnene, da lærer maskinen dem lazy fra /api/film. */
+          const runtime = parseInt(r["Runtime (mins)"] || r.Runtime || "", 10);
+          if (Number.isFinite(runtime) && runtime > 0) f.runtime = runtime;
+          const genres = normalizeGenres((r.Genres || "").split(","));
+          if (genres.length) f.genres = genres;
           const k = keyOf(f);
           if (seen.has(k)) continue;
           seen.add(k);

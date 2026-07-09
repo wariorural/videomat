@@ -301,6 +301,61 @@ input:focus-visible,
     height: clamp(200px, calc(100dvh - 464px), 264px);
   }
 }
+
+/* ── filterpanel: låner displayets fotavtrykk — maskinen vokser aldri ── */
+.filter-panel {
+  height: 264px;
+}
+@media (max-width: 519px) {
+  .filter-panel {
+    height: clamp(200px, calc(100vh - 464px), 264px);
+    height: clamp(200px, calc(100dvh - 464px), 264px);
+  }
+}
+
+/* sjangerchips: passive i panelets gråtoner, valgt = maskinens ene oransje */
+.chip {
+  font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border-radius: 3px;
+  border: 1px solid rgba(28, 27, 25, 0.28);
+  background: rgba(28, 27, 25, 0.04);
+  color: #5d5a52;
+  cursor: pointer;
+}
+.chip.on {
+  border-color: #dd5117;
+  color: #dd5117;
+  background: rgba(221, 81, 23, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    border-color: rgba(28, 27, 25, 0.5);
+  }
+  .chip.on:hover {
+    border-color: #dd5117;
+  }
+}
+
+/* displayet puster mens maskinen leter etter en filter-match */
+.searching {
+  animation: searchpulse 1.1s ease-in-out infinite;
+}
+@keyframes searchpulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .searching {
+    animation: none;
+  }
+}
 .flip-inner {
   position: absolute;
   inset: 0;

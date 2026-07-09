@@ -363,16 +363,36 @@ input:focus-visible,
   }
 }
 
-/* sjangerchips: passive i panelets gråtoner, valgt = maskinens ene oransje.
-   Små nok til at alle 19 står uten scroll i panelets minste høyde. */
+/* sjangerchips i et tastatur-aktig rutenett som fyller hele panel-
+   høyden — radene strekker seg, men aldri under 24px (da scroller
+   det heller). Passive i panelets gråtoner, valgt = den ene oransje. */
+.genre-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: minmax(24px, 1fr);
+  gap: 5px;
+  overflow-y: auto;
+}
+@media (max-width: 519px) {
+  .genre-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+}
 .chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
   font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 3px 6px;
-  border-radius: 2px;
+  padding: 2px 4px;
+  border-radius: 3px;
   border: 1px solid rgba(28, 27, 25, 0.28);
   background: rgba(28, 27, 25, 0.04);
   color: #5d5a52;

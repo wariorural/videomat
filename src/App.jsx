@@ -673,11 +673,7 @@ function FilterPanel({ filters, onChange, onClose }) {
         <Key small color="white" onClick={onClose} aria-label="Close filters">✕</Key>
       </div>
 
-      <div
-        role="group"
-        aria-label="Genres"
-        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 4, alignContent: "flex-start" }}
-      >
+      <div className="genre-grid" role="group" aria-label="Genres">
         {GENRES.map((g) => {
           const on = filters.genres.includes(g);
           return (

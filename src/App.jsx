@@ -1259,17 +1259,23 @@ export default function Videomat() {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 18px 14px", borderBottom: `1px solid ${PANEL_LO}`,
         }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <div>
               <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
-              {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
-              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
-                BY PART
-              </a>
+              {/* taglinen justeres ut til nøyaktig tittelbredden: width:0 +
+                  minWidth:100% holder den utenfor breddemålingen (tittelen
+                  bestemmer), og space-between sprer glyfene over hele linja */}
+              <div aria-hidden="true" style={{
+                display: "flex", justifyContent: "space-between", width: 0, minWidth: "100%",
+                marginTop: 5, fontFamily: DOT, fontWeight: 900, fontSize: 11, color: DIM,
+              }}>
+                {[..."ONE SPIN · ONE FILM"].map((c, i) => <span key={i}>{c === " " ? " " : c}</span>)}
+              </div>
             </div>
-            <div style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: DIM, letterSpacing: "0.13em", marginTop: 5 }}>
-              ONE SPIN · ONE FILM
-            </div>
+            {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
+            <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
+              BY PART
+            </a>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <Key
@@ -1339,30 +1345,28 @@ export default function Videomat() {
         }}>
           {oneLoaded && (
             <>
-              {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
-              <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : films(union.length)}</span>
+              {/* tellerne stables — frigjør bredde til seen/reset og tasten */}
+              <span style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 10.5, lineHeight: 1.3 }}>
+                {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
+                <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : films(union.length)}</span>
+              </span>
               {noRepeat && excluded.size > 0 && (
                 <span>
                   <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
                   <button className="linkbtn" onClick={resetExcluded}>reset</button>
                 </span>
               )}
-              {/* filter bor til høyre: oppsummering + tasten som åpner panelet */}
-              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                {filterActive && (
-                  <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {filterSummary}
-                  </span>
-                )}
-                <Key
-                  small color="white" on={filterActive}
-                  aria-expanded={filterOpen}
-                  aria-label={filterActive ? `Filters on: ${filterSummary}` : "Filters"}
-                  onClick={() => setFilterOpen((o) => !o)}
-                >
-                  filter
-                </Key>
-              </span>
+              {/* filter-tasten bor til høyre og lyser oransje når noe er aktivt —
+                  detaljene står i panelet, så ingen oppsummeringstekst her */}
+              <Key
+                small color={filterActive ? "orange" : "white"} on={filterActive}
+                aria-expanded={filterOpen}
+                aria-label={filterActive ? `Filters on: ${filterSummary}` : "Filters"}
+                onClick={() => setFilterOpen((o) => !o)}
+                style={{ marginLeft: "auto" }}
+              >
+                filter
+              </Key>
             </>
           )}
         </div>

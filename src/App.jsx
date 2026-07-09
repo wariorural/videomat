@@ -42,6 +42,13 @@ const EMPTY_SLOT = { films: [], filename: "", username: "", total: 0 };
 const EMPTY_FILTERS = { runtime: "all", genres: [] };
 const RUNTIME_LIMIT = 100; // minutter — grensa for over/under; nøyaktig 100 = under
 
+// tre ulike grunner til at et filtersøk kom tomt tilbake — vær ærlig om hvilken
+const NO_MATCH_TEXT = {
+  exhausted: "NO MATCH — LOOSEN FILTERS",
+  partial: "NO MATCH YET — SPIN TO KEEP SEARCHING",
+  rate_limited: "TOO MANY LOOKUPS — WAIT A MINUTE",
+};
+
 const saved = loadState();
 
 const films = (n) => (n === 1 ? "film" : "films");
@@ -698,8 +705,9 @@ export default function Videomat() {
   const [excluded, setExcluded] = useState(() => new Set(saved?.excluded || []));
   const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, ...(saved?.filters || {}) }));
   const [filterOpen, setFilterOpen] = useState(false);
-  const [searching, setSearching] = useState(false); // maskinen leter etter filter-match
-  const [noMatch, setNoMatch] = useState(false);     // søket ga ingenting → ærlig beskjed
+  const [searching, setSearching] = useState(false);  // maskinen leter etter filter-match
+  const [searchCount, setSearchCount] = useState(0);   // filmer slått opp i pågående søk
+  const [noMatch, setNoMatch] = useState(null);        // "exhausted" | "partial" | "rate_limited"
   const searchToken = useRef(null);
   const [fetching, setFetching] = useState({ a: false, b: false });
   const [errors, setErrors] = useState({ a: null, b: null });
@@ -810,7 +818,7 @@ export default function Videomat() {
     // et pågående filtersøk peker på en runde som ikke finnes lenger
     if (searchToken.current) searchToken.current.cancelled = true;
     setSearching(false);
-    setNoMatch(false);
+    setNoMatch(null);
     setPicks([null, null]);
     setDisplays([null, null]);
     setWinner(null);
@@ -914,52 +922,62 @@ export default function Videomat() {
 
   /* maskinen leter: gå gjennom poolen i tilfeldig rekkefølge — kjente filmer
      sjekkes direkte, ukjente får detaljer hentet on-demand (med litt look-
-     ahead så ventingen overlapper). Tak på forsøk og tid; alt den lærer
-     havner i faktabanken, så neste spinn er raskere. */
+     ahead så ventingen overlapper). Leter til den finner noe eller poolen er
+     ferdig sjekket; gir seg tidlig bare på ratelimit (429), feilstorm eller
+     tidstaket. Resultatet skiller «finnes ikke» fra «ikke funnet ennå» —
+     alt den lærer havner i faktabanken, så neste spinn fortsetter videre. */
   const drawMatch = async (pool, token) => {
     const order = [...pool];
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
     }
-    const MAX_FETCHES = 12; // holder oss under /api/film-ratelimiten (30/min)
-    const deadline = Date.now() + 10_000;
+    const deadline = Date.now() + 25_000;
     const pending = new Map();
-    let started = 0;
+    let rateLimited = false;
+    let streak = 0; // sammenhengende feil → API-et er nede, slutt å hamre
+    let looked = 0;
     const lookup = (f) => {
       const k = keyOf(f);
       if (!pending.has(k)) {
-        started++;
         pending.set(k, fetchFilmDetails(f.uri).then((info) => {
           learnFacts(f, info);
           requestedDetails.current.add(k);
           setDetails((d) => ({ ...d, [k]: info }));
-        }).catch(() => {
-          /* 429/nedetid → filmen hoppes bare over denne runden */
+          streak = 0;
+        }).catch((e) => {
+          if (e?.message === "rate_limited") rateLimited = true;
+          streak++;
         }));
       }
       return pending.get(k);
     };
+    const giveUp = () => rateLimited || streak >= 6 || Date.now() > deadline;
+    let unknownLeft = false;
     for (let i = 0; i < order.length; i++) {
-      if (token.cancelled) return null;
+      if (token.cancelled) return { film: null };
       const f = order[i];
       let m = matchesFilters(f);
-      if (m === null && f.uri && started < MAX_FETCHES && Date.now() < deadline) {
-        for (let j = i + 1, extra = 0; j < order.length && extra < 2 && started < MAX_FETCHES; j++) {
+      if (m === null) {
+        if (!f.uri || giveUp()) { unknownLeft = true; continue; }
+        for (let j = i + 1, extra = 0; j < order.length && extra < 2; j++) {
           if (order[j].uri && matchesFilters(order[j]) === null) { lookup(order[j]); extra++; }
         }
         await lookup(f);
-        if (token.cancelled) return null;
-        m = matchesFilters(f); // fortsatt ukjent (sida mangler data) → ikke match
+        looked++;
+        setSearchCount(looked);
+        if (token.cancelled) return { film: null };
+        m = matchesFilters(f);
+        if (m === null) { unknownLeft = true; continue; } // sida manglet data
       }
-      if (m === true) return f;
+      if (m === true) return { film: f };
     }
-    return null;
+    return { film: null, why: rateLimited ? "rate_limited" : unknownLeft ? "partial" : "exhausted" };
   };
 
   const updateFilters = (next) => {
     setFilters(next);
-    setNoMatch(false);
+    setNoMatch(null);
     // nye kriterier gjør et pågående søk meningsløst
     if (searchToken.current) searchToken.current.cancelled = true;
     setSearching(false);
@@ -989,7 +1007,7 @@ export default function Videomat() {
     if (spinning || searching || deciding || !canSpin) return;
     clearTimers();
     setFilterOpen(false); // filtre satt → Spin lukker panelet og bruker dem
-    setNoMatch(false);
+    setNoMatch(null);
     setWinner(null);
     setFlash(null);
     setPicks([null, null]);
@@ -1035,18 +1053,25 @@ export default function Videomat() {
     const token = { cancelled: false };
     if (searchToken.current) searchToken.current.cancelled = true;
     searchToken.current = token;
+    setSearchCount(0);
     setSearching(true);
     const hunt = isDuel
       ? Promise.all([drawMatch(poolA, token), drawMatch(poolB, token)])
-      : drawMatch(poolSingle, token).then((t) => [t, null]);
-    hunt.then(([tA, tB]) => {
+      : drawMatch(poolSingle, token).then((r) => [r, null]);
+    hunt.then(([rA, rB]) => {
       if (token.cancelled) return;
       setSearching(false);
-      if (!tA || (isDuel && !tB)) {
-        setNoMatch(true);
+      if (!rA.film || (isDuel && !rB.film)) {
+        // verste grunnen vinner: ratelimit trumfer «ikke ferdig», som trumfer «tomt»
+        const whys = [rA, rB].filter(Boolean).map((r) => r.why).filter(Boolean);
+        setNoMatch(
+          whys.includes("rate_limited") ? "rate_limited"
+            : whys.includes("partial") ? "partial"
+              : "exhausted"
+        );
         return;
       }
-      launch(tA, tB);
+      launch(rA.film, rB ? rB.film : null);
     });
   };
 
@@ -1237,13 +1262,22 @@ export default function Videomat() {
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
               <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
-              {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
-              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
+              {/* padding gir 44px treffflate; negativ margin holder headeren
+                  kompakt. Ekstra -0.18em speiler .bypart sin letter-spacing:
+                  den legges også etter T-en og ville ellers skjøvet taglinens
+                  høyrekant forbi siste glyf. */}
+              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12, marginRight: "calc(-12px - 0.18em)" }}>
                 BY PART
               </a>
             </div>
-            <div style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, color: DIM, letterSpacing: "0.13em", marginTop: 5 }}>
-              ONE SPIN · ONE FILM
+            {/* taglinen justeres ut til hele topplinja (tittel + BY PART):
+                width:0 + minWidth:100% holder den utenfor breddemålingen,
+                og space-between sprer glyfene over hele linja */}
+            <div aria-hidden="true" style={{
+              display: "flex", justifyContent: "space-between", width: 0, minWidth: "100%",
+              marginTop: 5, fontFamily: DOT, fontWeight: 900, fontSize: 11, color: DIM,
+            }}>
+              {[..."ONE SPIN · ONE FILM"].map((c, i) => <span key={i}>{c === " " ? " " : c}</span>)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -1314,30 +1348,28 @@ export default function Videomat() {
         }}>
           {oneLoaded && (
             <>
-              {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
-              <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : films(union.length)}</span>
+              {/* tellerne stables — frigjør bredde til seen/reset og tasten */}
+              <span style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 10.5, lineHeight: 1.3 }}>
+                {bothLoaded && <span><b style={{ color: INK }}>{overlap.length}</b> overlap</span>}
+                <span><b style={{ color: INK }}>{union.length}</b> {bothLoaded ? "combined" : films(union.length)}</span>
+              </span>
               {noRepeat && excluded.size > 0 && (
                 <span>
                   <b style={{ color: INK }}>{excluded.size}</b> seen ·{" "}
                   <button className="linkbtn" onClick={resetExcluded}>reset</button>
                 </span>
               )}
-              {/* filter bor til høyre: oppsummering + tasten som åpner panelet */}
-              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                {filterActive && (
-                  <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {filterSummary}
-                  </span>
-                )}
-                <Key
-                  small color="white" on={filterActive}
-                  aria-expanded={filterOpen}
-                  aria-label={filterActive ? `Filters on: ${filterSummary}` : "Filters"}
-                  onClick={() => setFilterOpen((o) => !o)}
-                >
-                  filter
-                </Key>
-              </span>
+              {/* filter-tasten bor til høyre og lyser oransje når noe er aktivt —
+                  detaljene står i panelet, så ingen oppsummeringstekst her */}
+              <Key
+                small color={filterActive ? "orange" : "white"} on={filterActive}
+                aria-expanded={filterOpen}
+                aria-label={filterActive ? `Filters on: ${filterSummary}` : "Filters"}
+                onClick={() => setFilterOpen((o) => !o)}
+                style={{ marginLeft: "auto" }}
+              >
+                filter
+              </Key>
             </>
           )}
         </div>
@@ -1408,12 +1440,12 @@ export default function Videomat() {
                   ADD LIST B TO UNLOCK
                 </span>
               ) : searching ? (
-                <span role="status" className="searching" style={{ position: "relative", zIndex: 1, color: D_HI, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
-                  SEARCHING…
+                <span role="status" className="searching" style={{ position: "relative", zIndex: 1, color: D_HI, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em", textAlign: "center" }}>
+                  SEARCHING…{searchCount > 0 ? ` ${searchCount} CHECKED` : ""}
                 </span>
               ) : noMatch ? (
-                <span role="status" style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em", textAlign: "center" }}>
-                  NO MATCH — LOOSEN FILTERS
+                <span role="status" style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em", textAlign: "center", lineHeight: 1.7 }}>
+                  {NO_MATCH_TEXT[noMatch] || NO_MATCH_TEXT.exhausted}
                 </span>
               ) : !canSpin && !shown ? (
                 !oneLoaded ? (

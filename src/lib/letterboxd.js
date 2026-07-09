@@ -101,6 +101,8 @@ export async function fetchWatchlist(username) {
 export async function fetchFilmDetails(uri) {
   // v=2: buster CDN- og SW-cachen fra før cast-feltet fantes
   const res = await fetch(`/api/film?uri=${encodeURIComponent(uri)}&v=2`);
+  // filtersøket trenger å skille «vent litt» fra «hopp over denne»
+  if (res.status === 429) throw new Error("rate_limited");
   if (!res.ok) throw new Error("film_failed");
   return res.json();
 }

@@ -1259,23 +1259,23 @@ export default function Videomat() {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 18px 14px", borderBottom: `1px solid ${PANEL_LO}`,
         }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <div>
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
               <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
-              {/* taglinen justeres ut til nøyaktig tittelbredden: width:0 +
-                  minWidth:100% holder den utenfor breddemålingen (tittelen
-                  bestemmer), og space-between sprer glyfene over hele linja */}
-              <div aria-hidden="true" style={{
-                display: "flex", justifyContent: "space-between", width: 0, minWidth: "100%",
-                marginTop: 5, fontFamily: DOT, fontWeight: 900, fontSize: 11, color: DIM,
-              }}>
-                {[..."ONE SPIN · ONE FILM"].map((c, i) => <span key={i}>{c === " " ? " " : c}</span>)}
-              </div>
+              {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
+              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
+                BY PART
+              </a>
             </div>
-            {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
-            <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
-              BY PART
-            </a>
+            {/* taglinen justeres ut til hele topplinja (tittel + BY PART):
+                width:0 + minWidth:100% holder den utenfor breddemålingen,
+                og space-between sprer glyfene over hele linja */}
+            <div aria-hidden="true" style={{
+              display: "flex", justifyContent: "space-between", width: 0, minWidth: "100%",
+              marginTop: 5, fontFamily: DOT, fontWeight: 900, fontSize: 11, color: DIM,
+            }}>
+              {[..."ONE SPIN · ONE FILM"].map((c, i) => <span key={i}>{c === " " ? " " : c}</span>)}
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <Key

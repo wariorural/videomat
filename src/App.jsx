@@ -1262,8 +1262,11 @@ export default function Videomat() {
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
               <h1 style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, lineHeight: 1 }}>Videomat</h1>
-              {/* padding gir 44px treffflate; negativ margin holder headeren kompakt */}
-              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12 }}>
+              {/* padding gir 44px treffflate; negativ margin holder headeren
+                  kompakt. Ekstra -0.18em speiler .bypart sin letter-spacing:
+                  den legges også etter T-en og ville ellers skjøvet taglinens
+                  høyrekant forbi siste glyf. */}
+              <a href="https://part.no" target="_blank" rel="noopener noreferrer" className="bypart" style={{ margin: -12, marginRight: "calc(-12px - 0.18em)" }}>
                 BY PART
               </a>
             </div>

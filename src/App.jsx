@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from "react";
-import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, safeUri, FETCH_ERRORS } from "./lib/letterboxd.js";
-import { loadState, saveState } from "./lib/storage.js";
+import { keyOf, parseCsv, fetchWatchlist, fetchFilmDetails, safeUri, FETCH_ERRORS, GENRES, normalizeGenres } from "./lib/letterboxd.js";
+import { loadState, saveState, loadFacts, saveFacts } from "./lib/storage.js";
 import { tick, clunk, win, setSoundEnabled } from "./lib/sound.js";
 import SplitFlapDisplay from "./SplitFlap.jsx";
 
@@ -39,6 +39,8 @@ const MODES = [
 
 const DEFAULT_PERSON = { a: "You", b: "Partner" };
 const EMPTY_SLOT = { films: [], filename: "", username: "", total: 0 };
+const EMPTY_FILTERS = { runtime: "all", genres: [] };
+const RUNTIME_LIMIT = 100; // minutter — grensa for over/under; nøyaktig 100 = under
 
 const saved = loadState();
 
@@ -603,6 +605,88 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
   );
 }
 
+/* ── filterpanel: bor i displayets fotavtrykk — maskinen beholder
+   fast høyde. Lengde er en trefase-switch på topplinja; sjangre er
+   toggle-chips med ELLER-semantikk (match = minst én valgt). Alt er
+   komprimert så alle 19 chipsene synes uten scroll. ─────────────── */
+
+const RUNTIME_CHOICES = [
+  ["all", "ALL", "All lengths"],
+  ["under", `≤${RUNTIME_LIMIT}`, `Under ${RUNTIME_LIMIT} minutes`],
+  ["over", `>${RUNTIME_LIMIT}`, `Over ${RUNTIME_LIMIT} minutes`],
+];
+
+// kortnavn kun for visning — filterverdien er alltid det kanoniske navnet
+const GENRE_SHORT = { "Science Fiction": "Sci-Fi" };
+const genreLabel = (g) => GENRE_SHORT[g] || g;
+
+function FilterPanel({ filters, onChange, onClose }) {
+  const active = filters.runtime !== "all" || filters.genres.length > 0;
+  const pos = Math.max(0, RUNTIME_CHOICES.findIndex(([v]) => v === filters.runtime));
+  const toggleGenre = (g) =>
+    onChange({
+      ...filters,
+      genres: filters.genres.includes(g)
+        ? filters.genres.filter((x) => x !== g)
+        : [...filters.genres, g],
+    });
+  return (
+    <div
+      className="filter-panel"
+      role="group"
+      aria-label="Filters"
+      style={{
+        background: PANEL_HI,
+        border: `1px solid ${PANEL_LO}`,
+        borderRadius: 7,
+        boxShadow: "inset 0 1.5px 4px rgba(0,0,0,0.12)",
+        padding: "10px 12px",
+        display: "flex", flexDirection: "column", gap: 8,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 12, letterSpacing: "0.14em", color: DIM }}>
+          FILTER
+        </span>
+        {/* trefase-switch for lengde — knotten glir mellom posisjonene */}
+        <div className="tri-switch" role="radiogroup" aria-label="Length">
+          <span className="tri-knob" aria-hidden="true" style={{ transform: `translateX(${pos * 100}%)` }} />
+          {RUNTIME_CHOICES.map(([v, label, aria]) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={filters.runtime === v}
+              aria-label={aria}
+              className={filters.runtime === v ? "on" : ""}
+              onClick={() => onChange({ ...filters, runtime: v })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span style={{ flex: 1 }} />
+        {active && (
+          <button className="linkbtn" onClick={() => onChange(EMPTY_FILTERS)} style={{ fontFamily: MONO, fontSize: 11 }}>
+            clear
+          </button>
+        )}
+        <Key small color="white" onClick={onClose} aria-label="Close filters">✕</Key>
+      </div>
+
+      <div className="genre-grid" role="group" aria-label="Genres">
+        {GENRES.map((g) => {
+          const on = filters.genres.includes(g);
+          return (
+            <button key={g} className={`chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleGenre(g)}>
+              {genreLabel(g)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ── selve maskinen ───────────────────────────────────────────── */
 
 export default function Videomat() {
@@ -612,6 +696,11 @@ export default function Videomat() {
   const [noRepeat, setNoRepeat] = useState(saved?.noRepeat ?? true);
   const [soundOn, setSoundOn] = useState(saved?.soundOn ?? false);
   const [excluded, setExcluded] = useState(() => new Set(saved?.excluded || []));
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, ...(saved?.filters || {}) }));
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searching, setSearching] = useState(false); // maskinen leter etter filter-match
+  const [noMatch, setNoMatch] = useState(false);     // søket ga ingenting → ærlig beskjed
+  const searchToken = useRef(null);
   const [fetching, setFetching] = useState({ a: false, b: false });
   const [errors, setErrors] = useState({ a: null, b: null });
   const [undo, setUndo] = useState(null); // { key, name } etter "seen it"
@@ -634,6 +723,20 @@ export default function Videomat() {
 
   const [details, setDetails] = useState({});
   const requestedDetails = useRef(new Set());
+
+  /* lærte fakta (runtime/sjangre) per film — muterbar map + localStorage;
+     ingen render avhenger av den, filtermatching skjer ved spinnetid */
+  const facts = useRef(loadFacts());
+
+  const learnFacts = useCallback((film, info) => {
+    const k = keyOf(film);
+    const prev = facts.current[k] || {};
+    facts.current[k] = {
+      runtime: Number.isFinite(info.runtime) && info.runtime > 0 ? info.runtime : prev.runtime ?? null,
+      genres: info.genres?.length ? normalizeGenres(info.genres) : prev.genres || [],
+    };
+    saveFacts(facts.current);
+  }, []);
 
   const timers = useRef([]);
   const landedRef = useRef(0);
@@ -676,7 +779,10 @@ export default function Videomat() {
       if (!f.uri || requestedDetails.current.has(k)) return;
       requestedDetails.current.add(k);
       fetchFilmDetails(f.uri)
-        .then((info) => setDetails((d) => ({ ...d, [k]: info })))
+        .then((info) => {
+          learnFacts(f, info);
+          setDetails((d) => ({ ...d, [k]: info }));
+        })
         .catch(() => {
           /* transient feil skal ikke sperre filmen resten av økta —
              neste landing på samme film prøver igjen */
@@ -691,9 +797,9 @@ export default function Videomat() {
     saveState({
       a: { films: a.films, filename: a.filename, username: a.username, person: a.person, total: a.total },
       b: { films: b.films, filename: b.filename, username: b.username, person: b.person, total: b.total },
-      mode, noRepeat, soundOn, excluded: [...excluded],
+      mode, noRepeat, soundOn, excluded: [...excluded], filters,
     });
-  }, [a, b, mode, noRepeat, soundOn, excluded]);
+  }, [a, b, mode, noRepeat, soundOn, excluded, filters]);
 
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
@@ -701,6 +807,10 @@ export default function Videomat() {
   };
 
   const resetRound = useCallback(() => {
+    // et pågående filtersøk peker på en runde som ikke finnes lenger
+    if (searchToken.current) searchToken.current.cancelled = true;
+    setSearching(false);
+    setNoMatch(false);
     setPicks([null, null]);
     setDisplays([null, null]);
     setWinner(null);
@@ -736,6 +846,8 @@ export default function Videomat() {
     setErrors((e) => ({ ...e, [which]: null }));
     try {
       const films = await parseCsv(file);
+      // IMDb-CSV bærer runtime/sjangre — rett inn i faktabanken
+      films.forEach((f) => { if (f.runtime || f.genres) learnFacts(f, f); });
       setterFor(which)((s) => ({ ...s, films, filename: file.name, username: "", total: films.length }));
       resetRound();
     } catch (err) {
@@ -778,6 +890,81 @@ export default function Videomat() {
   const poolA = useMemo(() => minusSeen(a.films), [a.films, minusSeen]);
   const poolB = useMemo(() => minusSeen(b.films), [b.films, minusSeen]);
 
+  /* ── filter ── */
+
+  const filterActive = filters.runtime !== "all" || filters.genres.length > 0;
+
+  // true/false/null — null betyr «vet ikke ennå, hent detaljer og sjekk igjen».
+  // Kilder i prioritert rekkefølge: lært faktabank, felter fra IMDb-CSV.
+  const matchesFilters = useCallback((f) => {
+    const learned = facts.current[keyOf(f)];
+    const runtime = learned?.runtime ?? f.runtime ?? null;
+    const genres = learned?.genres?.length ? learned.genres : f.genres || [];
+    let unknown = false;
+    if (filters.runtime !== "all") {
+      if (runtime == null) unknown = true;
+      else if (filters.runtime === "under" ? runtime > RUNTIME_LIMIT : runtime <= RUNTIME_LIMIT) return false;
+    }
+    if (filters.genres.length > 0) {
+      if (genres.length === 0) unknown = true; // Letterboxd-filmer har ingen sjangre før detaljene er lært
+      else if (!filters.genres.some((g) => genres.includes(g))) return false;
+    }
+    return unknown ? null : true;
+  }, [filters]);
+
+  /* maskinen leter: gå gjennom poolen i tilfeldig rekkefølge — kjente filmer
+     sjekkes direkte, ukjente får detaljer hentet on-demand (med litt look-
+     ahead så ventingen overlapper). Tak på forsøk og tid; alt den lærer
+     havner i faktabanken, så neste spinn er raskere. */
+  const drawMatch = async (pool, token) => {
+    const order = [...pool];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    const MAX_FETCHES = 12; // holder oss under /api/film-ratelimiten (30/min)
+    const deadline = Date.now() + 10_000;
+    const pending = new Map();
+    let started = 0;
+    const lookup = (f) => {
+      const k = keyOf(f);
+      if (!pending.has(k)) {
+        started++;
+        pending.set(k, fetchFilmDetails(f.uri).then((info) => {
+          learnFacts(f, info);
+          requestedDetails.current.add(k);
+          setDetails((d) => ({ ...d, [k]: info }));
+        }).catch(() => {
+          /* 429/nedetid → filmen hoppes bare over denne runden */
+        }));
+      }
+      return pending.get(k);
+    };
+    for (let i = 0; i < order.length; i++) {
+      if (token.cancelled) return null;
+      const f = order[i];
+      let m = matchesFilters(f);
+      if (m === null && f.uri && started < MAX_FETCHES && Date.now() < deadline) {
+        for (let j = i + 1, extra = 0; j < order.length && extra < 2 && started < MAX_FETCHES; j++) {
+          if (order[j].uri && matchesFilters(order[j]) === null) { lookup(order[j]); extra++; }
+        }
+        await lookup(f);
+        if (token.cancelled) return null;
+        m = matchesFilters(f); // fortsatt ukjent (sida mangler data) → ikke match
+      }
+      if (m === true) return f;
+    }
+    return null;
+  };
+
+  const updateFilters = (next) => {
+    setFilters(next);
+    setNoMatch(false);
+    // nye kriterier gjør et pågående søk meningsløst
+    if (searchToken.current) searchToken.current.cancelled = true;
+    setSearching(false);
+  };
+
   const bothLoaded = a.films.length > 0 && b.films.length > 0;
   const oneLoaded = a.films.length > 0 || b.films.length > 0;
   const isDuel = mode === "duell";
@@ -799,42 +986,68 @@ export default function Videomat() {
   const rand = (list) => list[Math.floor(Math.random() * list.length)];
 
   const spin = () => {
-    if (spinning || deciding || !canSpin) return;
+    if (spinning || searching || deciding || !canSpin) return;
     clearTimers();
+    setFilterOpen(false); // filtre satt → Spin lukker panelet og bruker dem
+    setNoMatch(false);
     setWinner(null);
     setFlash(null);
     setPicks([null, null]);
 
-    if (isDuel) {
-      const tA = rand(poolA);
-      const tB = rand(poolB);
-      pendingDuel.current = [tA, tB];
-      if (reducedMotion) {
+    // felles siste etappe: flap-løpet. Flappene låser målteksten ved
+    // spinKey-bump, derfor må et eventuelt filtersøk skje FØR dette.
+    const launch = (tA, tB) => {
+      if (isDuel) {
+        pendingDuel.current = [tA, tB];
+        if (reducedMotion) {
+          setDisplays([tA, tB]);
+          setPicks([tA, tB]);
+          clunk();
+          return;
+        }
+        // begge vinduene flakser samtidig; B har ekstra delay og lander sist — drama
         setDisplays([tA, tB]);
-        setPicks([tA, tB]);
-        clunk();
-        return;
+        setSpinning(true);
+        landedRef.current = 0;
+        setSpinKey((k) => k + 1);
+      } else {
+        pendingTarget.current = tA;
+        if (reducedMotion) {
+          setDisplays([tA, null]);
+          setPicks([tA, null]);
+          clunk();
+          return;
+        }
+        // Målet settes med én gang som tekst; SplitFlapDisplay flakser fram til
+        // det og kaller onFlapSettle når raden har roet seg (den eier timingen).
+        setDisplays([tA, null]);
+        setSpinning(true);
+        setSpinKey((k) => k + 1);
       }
-      // begge vinduene flakser samtidig; B har ekstra delay og lander sist — drama
-      setDisplays([tA, tB]);
-      setSpinning(true);
-      landedRef.current = 0;
-      setSpinKey((k) => k + 1);
-    } else {
-      const target = rand(poolSingle);
-      pendingTarget.current = target;
-      if (reducedMotion) {
-        setDisplays([target, null]);
-        setPicks([target, null]);
-        clunk();
-        return;
-      }
-      // Målet settes med én gang som tekst; SplitFlapDisplay flakser fram til
-      // det og kaller onFlapSettle når raden har roet seg (den eier timingen).
-      setDisplays([target, null]);
-      setSpinning(true);
-      setSpinKey((k) => k + 1);
+    };
+
+    if (!filterActive) {
+      launch(isDuel ? rand(poolA) : rand(poolSingle), isDuel ? rand(poolB) : null);
+      return;
     }
+
+    // med filter: maskinen leter først (SEARCHING…), flapper når målet er funnet
+    const token = { cancelled: false };
+    if (searchToken.current) searchToken.current.cancelled = true;
+    searchToken.current = token;
+    setSearching(true);
+    const hunt = isDuel
+      ? Promise.all([drawMatch(poolA, token), drawMatch(poolB, token)])
+      : drawMatch(poolSingle, token).then((t) => [t, null]);
+    hunt.then(([tA, tB]) => {
+      if (token.cancelled) return;
+      setSearching(false);
+      if (!tA || (isDuel && !tB)) {
+        setNoMatch(true);
+        return;
+      }
+      launch(tA, tB);
+    });
   };
 
   // duell: hvert vindu melder fra når flap-raden har roet seg
@@ -967,8 +1180,24 @@ export default function Videomat() {
   useEffect(() => {
     if (!respin) return;
     setRespin(false);
-    if (canSpin && !spinning && !deciding) spin();
+    if (canSpin && !spinning && !searching && !deciding) spin();
   });
+
+  // filterpanelet: Escape lukker, som detalj-flippen
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setFilterOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [filterOpen]);
+
+  // kort oppsummering av aktive filtre til status-stripa
+  const filterSummary = [
+    filters.runtime === "under" ? `≤${RUNTIME_LIMIT} MIN` : filters.runtime === "over" ? `>${RUNTIME_LIMIT} MIN` : null,
+    filters.genres.length > 0
+      ? genreLabel(filters.genres[0]).toUpperCase() + (filters.genres.length > 1 ? ` +${filters.genres.length - 1}` : "")
+      : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="page" style={{
@@ -1081,7 +1310,7 @@ export default function Videomat() {
         {/* Status-stripe — fast høyde, innholdet kommer og går */}
         <div style={{
           display: "flex", gap: 18, padding: "9px 18px", minHeight: 34,
-          fontFamily: MONO, fontSize: 11.5, color: DIM, flexWrap: "wrap", alignItems: "baseline",
+          fontFamily: MONO, fontSize: 11.5, color: DIM, flexWrap: "wrap", alignItems: "center",
         }}>
           {oneLoaded && (
             <>
@@ -1093,13 +1322,32 @@ export default function Videomat() {
                   <button className="linkbtn" onClick={resetExcluded}>reset</button>
                 </span>
               )}
+              {/* filter bor til høyre: oppsummering + tasten som åpner panelet */}
+              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                {filterActive && (
+                  <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {filterSummary}
+                  </span>
+                )}
+                <Key
+                  small color="white" on={filterActive}
+                  aria-expanded={filterOpen}
+                  aria-label={filterActive ? `Filters on: ${filterSummary}` : "Filters"}
+                  onClick={() => setFilterOpen((o) => !o)}
+                >
+                  filter
+                </Key>
+              </span>
             </>
           )}
         </div>
 
         {/* Display */}
         <div style={{ padding: "6px 18px 4px" }}>
-          {isDuel && bothLoaded && (canSpin || duelLanded) ? (
+          {filterOpen ? (
+            /* filterpanelet låner displayets fotavtrykk — fast høyde bevares */
+            <FilterPanel filters={filters} onChange={updateFilters} onClose={() => setFilterOpen(false)} />
+          ) : isDuel && bothLoaded && (canSpin || duelLanded) && !searching && !noMatch ? (
             <div className="duel">
               <DuelWindow
                 label={a.person} accent={ORANGE} film={displays[0]}
@@ -1158,6 +1406,14 @@ export default function Videomat() {
               {lockHint ? (
                 <span role="status" style={{ position: "relative", zIndex: 1, color: D_HI, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
                   ADD LIST B TO UNLOCK
+                </span>
+              ) : searching ? (
+                <span role="status" className="searching" style={{ position: "relative", zIndex: 1, color: D_HI, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em" }}>
+                  SEARCHING…
+                </span>
+              ) : noMatch ? (
+                <span role="status" style={{ position: "relative", zIndex: 1, color: D_EMPTY, fontFamily: DOT, fontWeight: 900, fontSize: 14, letterSpacing: "0.12em", textAlign: "center" }}>
+                  NO MATCH — LOOSEN FILTERS
                 </span>
               ) : !canSpin && !shown ? (
                 !oneLoaded ? (
@@ -1263,13 +1519,13 @@ export default function Videomat() {
               color="orange"
               className="ctrl-spin"
               onClick={exhausted ? resetExcluded : spin}
-              disabled={spinning || deciding || (!canSpin && !exhausted)}
+              disabled={spinning || searching || deciding || (!canSpin && !exhausted)}
               capStyle={{ fontFamily: GROTESK, fontSize: 17, fontWeight: 700, letterSpacing: "0.01em", textTransform: "none", minHeight: 40 }}
             >
-              {spinning ? "spinning…" : exhausted ? "Reset seen" : picks[0] ? "Spin again" : "Spin"}
+              {spinning ? "spinning…" : searching ? "searching…" : exhausted ? "Reset seen" : picks[0] ? "Spin again" : "Spin"}
             </Key>
 
-            {chosenFilm && !spinning && !deciding && (
+            {chosenFilm && !spinning && !searching && !deciding && (
               <Key color="ink" className="ctrl-seen" onClick={markWatched} capStyle={{ minHeight: 40 }}>
                 Seen it ✓
               </Key>

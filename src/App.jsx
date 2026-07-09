@@ -606,17 +606,23 @@ function DetailsBack({ flipped, film, info, whose, tight = false, onClose }) {
 }
 
 /* ── filterpanel: bor i displayets fotavtrykk — maskinen beholder
-   fast høyde. Lengde er en trestillingsvelger; sjangre er toggle-
-   chips med ELLER-semantikk (match = minst én valgt sjanger). ──── */
+   fast høyde. Lengde er en trefase-switch på topplinja; sjangre er
+   toggle-chips med ELLER-semantikk (match = minst én valgt). Alt er
+   komprimert så alle 19 chipsene synes uten scroll. ─────────────── */
 
 const RUNTIME_CHOICES = [
-  ["all", "All"],
-  ["under", `≤ ${RUNTIME_LIMIT} min`],
-  ["over", `> ${RUNTIME_LIMIT} min`],
+  ["all", "ALL", "All lengths"],
+  ["under", `≤${RUNTIME_LIMIT}`, `Under ${RUNTIME_LIMIT} minutes`],
+  ["over", `>${RUNTIME_LIMIT}`, `Over ${RUNTIME_LIMIT} minutes`],
 ];
+
+// kortnavn kun for visning — filterverdien er alltid det kanoniske navnet
+const GENRE_SHORT = { "Science Fiction": "Sci-Fi" };
+const genreLabel = (g) => GENRE_SHORT[g] || g;
 
 function FilterPanel({ filters, onChange, onClose }) {
   const active = filters.runtime !== "all" || filters.genres.length > 0;
+  const pos = Math.max(0, RUNTIME_CHOICES.findIndex(([v]) => v === filters.runtime));
   const toggleGenre = (g) =>
     onChange({
       ...filters,
@@ -634,14 +640,30 @@ function FilterPanel({ filters, onChange, onClose }) {
         border: `1px solid ${PANEL_LO}`,
         borderRadius: 7,
         boxShadow: "inset 0 1.5px 4px rgba(0,0,0,0.12)",
-        padding: "12px 14px",
-        display: "flex", flexDirection: "column", gap: 10,
+        padding: "10px 12px",
+        display: "flex", flexDirection: "column", gap: 8,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 13, letterSpacing: "0.16em", color: DIM }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: DOT, fontWeight: 900, fontSize: 12, letterSpacing: "0.14em", color: DIM }}>
           FILTER
         </span>
+        {/* trefase-switch for lengde — knotten glir mellom posisjonene */}
+        <div className="tri-switch" role="radiogroup" aria-label="Length">
+          <span className="tri-knob" aria-hidden="true" style={{ transform: `translateX(${pos * 100}%)` }} />
+          {RUNTIME_CHOICES.map(([v, label, aria]) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={filters.runtime === v}
+              aria-label={aria}
+              className={filters.runtime === v ? "on" : ""}
+              onClick={() => onChange({ ...filters, runtime: v })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <span style={{ flex: 1 }} />
         {active && (
           <button className="linkbtn" onClick={() => onChange(EMPTY_FILTERS)} style={{ fontFamily: MONO, fontSize: 11 }}>
@@ -651,39 +673,19 @@ function FilterPanel({ filters, onChange, onClose }) {
         <Key small color="white" onClick={onClose} aria-label="Close filters">✕</Key>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: DIM }}>LENGTH</span>
-        <div role="group" aria-label="Length" style={{ display: "flex", gap: 7 }}>
-          {RUNTIME_CHOICES.map(([v, label]) => {
-            const on = filters.runtime === v;
-            return (
-              <Key
-                key={v} small color={on ? "ink" : "white"} on={on} aria-pressed={on}
-                onClick={() => onChange({ ...filters, runtime: v })}
-                style={{ flex: 1 }}
-                capStyle={{ textTransform: "none", letterSpacing: "0.02em" }}
-              >
-                {label}
-              </Key>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", color: DIM }}>
-          GENRE{filters.genres.length > 0 ? ` · ANY OF ${filters.genres.length}` : ""}
-        </span>
-        <div style={{ overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start", paddingBottom: 2 }}>
-          {GENRES.map((g) => {
-            const on = filters.genres.includes(g);
-            return (
-              <button key={g} className={`chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleGenre(g)}>
-                {g}
-              </button>
-            );
-          })}
-        </div>
+      <div
+        role="group"
+        aria-label="Genres"
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 4, alignContent: "flex-start" }}
+      >
+        {GENRES.map((g) => {
+          const on = filters.genres.includes(g);
+          return (
+            <button key={g} className={`chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleGenre(g)}>
+              {genreLabel(g)}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1197,7 +1199,7 @@ export default function Videomat() {
   const filterSummary = [
     filters.runtime === "under" ? `≤${RUNTIME_LIMIT} MIN` : filters.runtime === "over" ? `>${RUNTIME_LIMIT} MIN` : null,
     filters.genres.length > 0
-      ? filters.genres[0].toUpperCase() + (filters.genres.length > 1 ? ` +${filters.genres.length - 1}` : "")
+      ? genreLabel(filters.genres[0]).toUpperCase() + (filters.genres.length > 1 ? ` +${filters.genres.length - 1}` : "")
       : null,
   ].filter(Boolean).join(" · ");
 

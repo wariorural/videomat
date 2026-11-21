@@ -1,0 +1,467 @@
+/* ═══════════════════════════════════════════════════════════════
+   VIDEOMAT LOOK — portabelt stilark
+   Trukket ut av videomat/src/index.css. Ingen app-spesifikk layout:
+   bare tokens, kabinett-lagene, tastene, displayet, split-flappen
+   og de små kontrollene (tri-switch, chips, flip-kort).
+
+   Bruk: kopier denne fila + fontene i public/fonts/ inn i det nye
+   prosjektet, importer den én gang, og bygg med klassene under.
+   Alt utenom fontene er selvstendig CSS — ingen build-avhengigheter.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. FONTER ────────────────────────────────────────────────
+   Tre roller: GROTESK (titler/knapper), MONO (etiketter/data),
+   DOT (mikro-etiketter à la Nothing — trenger stor grad + tracking).
+   Mac/iOS bruker systemets Helvetica Neue + SF Mono; Android/Windows
+   får Inter + JetBrains Mono self-hostet. Doto lastes alltid.
+   woff2-filene ligger i public/fonts/ i kildeprosjektet. */
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-display: swap; src: url("/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("/fonts/inter-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Doto"; font-weight: 700; font-display: swap; src: url("/fonts/doto-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Doto"; font-weight: 900; font-display: swap; src: url("/fonts/doto-latin-900-normal.woff2") format("woff2"); }
+
+/* ── 2. TOKENS ────────────────────────────────────────────────
+   Paletten er sju verdier. Én oransje er hele aksenten — legger du
+   til en farge nr. 2 slutter maskinen å se ut som ett apparat. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+
+  --red: #dd5117;      /* Braun-oransje: eneste aksent */
+  --error: #a8321a;    /* mørkere rød, AA-kontrast på panel */
+  --ink: #1c1b19;      /* tekst + mørke flater */
+  --panel: #dddad2;    /* kabinettets plast */
+  --panel-hi: #e9e7e0; /* hevet flate / baksider */
+  --panel-lo: #c9c6bd; /* kantlinje / skygge */
+  --page-bg: #b9b6ac;  /* bordet maskinen står på */
+  --dim: #5d5a52;      /* sekundærtekst, ≥4.5:1 på panel */
+
+  /* gråtoner PÅ det mørke displayet (alle ≥4.5:1 mot --ink) */
+  --d-hi: #9a988f;     /* tall, år, rating */
+  --d-mid: #8f8d84;    /* sekundærdata */
+  --d-label: #8a8880;  /* etiketter og tomtilstand */
+
+  --font-grotesk: "Helvetica Neue", "Inter", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-dot: "Doto", "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+/* komponenten bruker minHeight:100% — hele kjeden ned til rota trenger høyde */
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--page-bg);
+  font-family: var(--font-grotesk);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* raskt gjentatt trykk skal ikke trigge dobbelttrykk-zoom på iOS */
+button, a, label, input {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* ── 3. FLATEN RUNDT MASKINEN ─────────────────────────────────
+   Registreringsprikker (Nothing-referanse) + safe-area for PWA. */
+.page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--page-bg);
+  background-image: radial-gradient(rgba(28, 27, 25, 0.13) 1px, transparent 1.2px);
+  background-size: 28px 28px;
+  padding: 22px 16px 40px;
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
+}
+@media (max-width: 519px) {
+  .page {
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── 4. KABINETTET ────────────────────────────────────────────
+   Clear-tech: frostet halvgjennomsiktig skall, dot-griden skimtes
+   gjennom. Lagrekkefølge inne i .machine (alle position:absolute,
+   pointer-events:none): PCB → light-blobs → frost → gloss →
+   innhold i en <div style="position:relative; z-index:1">. */
+.machine {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  border: 1px solid var(--panel-lo);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 18px 40px -22px rgba(0, 0, 0, 0.55);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .machine {
+    background: rgba(221, 218, 210, 0.82);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* lys som diffunderer i plasten: varmt nede til venstre, kjølig oppe til høyre */
+.light-blob { position: absolute; pointer-events: none; border-radius: 50%; filter: blur(40px); }
+.light-blob.warm { left: 8%; bottom: -50px; width: 340px; height: 220px; background: rgba(221, 81, 23, 0.1); }
+.light-blob.cool { right: -60px; top: -70px; width: 320px; height: 250px; background: rgba(255, 255, 255, 0.55); }
+
+/* koblingslag: kobberspor mellom feltene, bak frosten (se CircuitLayer.jsx) */
+.pcb {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+}
+
+/* frostet skall: SVG-noise som data-URI, ingen ekstern fil */
+.frost {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+
+/* matt plast, ikke blank glass — topphøylyset er dempet med vilje */
+.machine-gloss {
+  position: absolute; inset: 0 0 auto 0; height: 46%; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
+}
+
+/* ── 5. TE-TASTEN ─────────────────────────────────────────────
+   Etter Teenage Engineering: socket = mørk brønn, cap = gradient-
+   plast med inset-høylys. Trykk/latched kollapser skyggene og
+   legger på en mørk inset-ring — ingen layout-endring (transform).
+   Fargene settes per tast via --cap/--cap2/--hl/--captext. */
+.key {
+  position: relative;
+  display: block;
+  padding: 0;
+  min-width: 0;
+  border: none;
+  border-radius: 4px;
+  background: #46433c;              /* duset varm mørkgrå, ikke hard svart */
+  cursor: pointer;
+  box-shadow: 1px 1px 2px rgba(255, 255, 255, 0.55);
+}
+/* usynlig utvidet treffflate — capene er ~30px, tommelen trenger ~44 */
+.key::after { content: ""; position: absolute; inset: -6px; }
+/* cap-fargen «reflekteres» i socket-veggene */
+.key::before {
+  content: ""; position: absolute; inset: 0;
+  border: 1px solid var(--cap);
+  border-radius: 4px;
+  filter: blur(2px);
+  pointer-events: none;
+}
+.key:disabled { cursor: default; opacity: 0.4; }
+/* låst (aria-disabled): tydelig av, men klikk gir hint — trykk-animasjonen
+   beholdes som ærlig feedback på at knappen ble registrert */
+.key.locked { cursor: default; }
+.key.locked .cap { filter: saturate(0.25); opacity: 0.55; }
+
+.key .cap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 3px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: linear-gradient(117deg, var(--cap), var(--cap2));
+  color: var(--captext);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    transform 100ms cubic-bezier(0.12, 0.23, 0.5, 1),
+    box-shadow 100ms cubic-bezier(0.12, 0.23, 0.5, 1);
+  box-shadow:
+    inset 1px 1px 2px var(--hl),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.35),
+    1px 1px 2px -0.5px rgba(38, 14, 4, 0.5),
+    3px 3px 8px -2px rgba(38, 14, 4, 0.35),
+    7px 7px 18px -3px rgba(38, 14, 4, 0.22);
+}
+.key.small .cap { min-height: 24px; padding: 3px 8px; }
+.key:not(:disabled):active .cap,
+.key.on .cap {
+  transform: translate(0.5px, 0.5px) scale(0.98);
+  box-shadow:
+    inset 1px 1px 2px rgba(0, 0, 0, 0),
+    inset -1px -1px 2px rgba(0, 0, 0, 0),
+    inset 0 0 4px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .key .cap { transition: none; }
+}
+
+/* fysisk trykk-følelse på knapper som IKKE er .key */
+.press { transition: transform 120ms var(--ease-out); }
+.press:active { transform: translateY(1px) scale(0.98); }
+
+/* tekstlenke-knapp (reset/undo) */
+.linkbtn {
+  background: none; border: none; cursor: pointer;
+  padding: 12px 6px; margin: -12px -6px;   /* 44px treff uten layout-skift */
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--red);
+  text-decoration: underline;
+}
+@media (hover: hover) and (pointer: fine) {
+  .linkbtn:hover { color: var(--error); }
+}
+
+/* ── 6. DISPLAY-MODULEN (LCD bak glass) ───────────────────────
+   Nedsenket i housingen: inset-skygge = ambient occlusion, ::before
+   = screen-door/dot-matrix, ::after = diagonalt glasshøylys. */
+.display-module {
+  position: relative;
+  background: #1a1916;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.display-module::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background:
+    radial-gradient(rgba(120, 140, 120, 0.05) 0.5px, transparent 0.6px) 0 0 / 3px 3px,
+    linear-gradient(180deg, rgba(150, 170, 150, 0.035), rgba(0, 0, 0, 0.06));
+}
+.display-module::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(128deg, rgba(255, 255, 255, 0.07) 0%, transparent 34%);
+}
+/* alt innhold i displayet må ligge over ::before/::after-lagene */
+.display-module > * { position: relative; z-index: 1; }
+
+/* displayet puster mens maskinen jobber */
+.searching { animation: searchpulse 1.1s ease-in-out infinite; }
+@keyframes searchpulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .searching { animation: none; } }
+
+/* ── 7. SPLIT-FLAP (Solari) ───────────────────────────────────
+   Alle mål er i em og styres av font-size på .flap-scaler. */
+.flap-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.flap-scaler {
+  transform-origin: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12em;
+  font-size: 46px;
+}
+.flap-compact .flap-scaler { font-size: 26px; }
+.flap-row { display: flex; gap: 0.07em; white-space: nowrap; }
+
+.flap {
+  position: relative;
+  display: inline-block;
+  width: 0.66em;
+  height: 1em;
+  perspective: 240px;
+  border-radius: 0.09em;
+  color: #e7e4dd;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 700;
+  filter: drop-shadow(0 0.03em 0.05em rgba(0, 0, 0, 0.55));
+}
+.flap-half {
+  position: absolute; left: 0; right: 0; height: 50%; overflow: hidden;
+  background: linear-gradient(180deg, #24221e, #171612);
+}
+.flap-top { top: 0; border-radius: 0.09em 0.09em 0 0; background: linear-gradient(180deg, #262420, #1d1b17); }
+.flap-bottom { bottom: 0; border-radius: 0 0 0.09em 0.09em; background: linear-gradient(180deg, #1b1915, #131210); }
+/* samme glyph i begge halvdeler, klippet → sømmen går gjennom tegnet */
+.flap-half .glyph { position: absolute; left: 0; width: 100%; height: 200%; line-height: 1em; text-align: center; }
+.flap-top .glyph { top: 0; }
+.flap-bottom .glyph { bottom: 0; }
+
+/* den fysiske spalten: mørk søm + tynt høylys under */
+.flap-seam {
+  position: absolute; left: 0; right: 0; top: 50%; height: 0.05em;
+  transform: translateY(-50%);
+  z-index: 4; pointer-events: none;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 0.03em 0.03em rgba(0, 0, 0, 0.7),
+    0 0.02em 0 rgba(255, 255, 255, 0.05);
+}
+
+/* de foldende bladene */
+.flap-leaf { position: absolute; inset: 0; z-index: 3; }
+.leaf-top { transform-origin: bottom; backface-visibility: hidden; animation: fold-down 0.13s var(--ease-in) forwards; }
+.leaf-bottom { transform-origin: top; backface-visibility: hidden; transform: rotateX(90deg); animation: fold-up 0.13s var(--ease-out) 0.12s forwards; }
+@keyframes fold-down { from { transform: rotateX(0deg); } to { transform: rotateX(-90deg); } }
+@keyframes fold-up { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+
+/* landet resultat: myk oransje bloom bak tegnene (baklyst segment) */
+.flap-wrap.landed::before {
+  content: ""; position: absolute; inset: -8% -4%; z-index: 0; pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(221, 81, 23, 0.22), transparent 70%);
+  animation: bloom-in 0.5s var(--ease-out) both;
+}
+@keyframes bloom-in { from { opacity: 0; } to { opacity: 1; } }
+.flap-wrap.landed .flap { color: #f0ede6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .leaf-top, .leaf-bottom { animation-duration: 0.001s; }
+  .flap-wrap.landed::before { animation: none; }
+}
+
+/* ── 8. FLIP-KORT («snu arket») ───────────────────────────────
+   Et felt som roterer 180° til sin egen bakside. Gi .flip/.flipbox
+   en FAST høyde — hele poenget er at maskinen aldri vokser. */
+.flip { position: relative; flex: 1; min-width: 0; perspective: 700px; }
+.flipbox { position: relative; perspective: 900px; }
+.flip-inner {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 320ms var(--ease-in-out);
+}
+.flip.flipped .flip-inner,
+.flipbox.flipped .flip-inner { transform: rotateY(180deg); }
+/* NB: ingen overflow:hidden her — det flater ut 3D-konteksten og skrur av
+   backface-visibility i Chrome. Klipp i en indre wrapper i stedet. */
+.flip-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 4px;
+  transform: rotateY(0deg);
+}
+.flip-back { transform: rotateY(180deg); }
+@media (prefers-reduced-motion: reduce) { .flip-inner { transition: none; } }
+
+/* ── 9. TRI-SWITCH ────────────────────────────────────────────
+   Trefase-bryter: mørk brønn med glidende knott. Samme mekaniske
+   språk som tastene, men flatere og mye mer kompakt.
+   Knotten flyttes med style="transform: translateX(pos * 100%)". */
+.tri-switch {
+  position: relative; display: flex; flex-shrink: 0;
+  padding: 2px; border-radius: 4px;
+  border: 1px solid rgba(28, 27, 25, 0.22);
+  background: rgba(28, 27, 25, 0.1);
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.18);
+}
+.tri-switch .tri-knob {
+  position: absolute; top: 2px; bottom: 2px; left: 2px;
+  width: calc((100% - 4px) / 3);
+  border-radius: 3px;
+  background: linear-gradient(117deg, #ecebe4, #ddd8d0);
+  box-shadow:
+    inset 1px 1px 2px rgba(255, 255, 255, 0.9),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.28);
+  transition: transform 160ms cubic-bezier(0.2, 0.7, 0.4, 1);
+}
+.tri-switch button {
+  position: relative; z-index: 1; flex: 1;
+  border: none; background: none; padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--dim); cursor: pointer; white-space: nowrap;
+}
+.tri-switch button.on { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .tri-switch .tri-knob { transition: none; } }
+
+/* ── 10. CHIPS ────────────────────────────────────────────────
+   Passive i panelets gråtoner; valgt = den ene oransjen. */
+.chip {
+  display: flex; align-items: center; justify-content: center; min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 4px; border-radius: 3px;
+  border: 1px solid rgba(28, 27, 25, 0.28);
+  background: rgba(28, 27, 25, 0.04);
+  color: var(--dim);
+  cursor: pointer;
+}
+.chip.on {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(221, 81, 23, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover { border-color: rgba(28, 27, 25, 0.5); }
+  .chip.on:hover { border-color: var(--red); }
+}
+
+/* ── 11. MIKRO-ETIKETT (dot-matrix) ───────────────────────────
+   Doto er en punktfont: den trenger stor vekt, ≥11px og mye
+   tracking for å bli lesbar. Kun til korte VERSAL-etiketter. */
+.dotlabel {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* ── 12. SMÅ BEVEGELSER ───────────────────────────────────────
+   Alt varer 180–320 ms. Ingenting «swusher». */
+@keyframes settle { from { transform: scale(1.05); } to { transform: scale(1); } }
+.settled { animation: settle 200ms var(--ease-out); }
+
+@keyframes poster-in { from { opacity: 0; } to { opacity: 1; } }
+.poster-fade { animation: poster-in 280ms var(--ease-out) both; }
+
+@keyframes stamp-in {
+  from { transform: rotate(-7deg) scale(1.7); opacity: 0; }
+  to { transform: rotate(-7deg) scale(1); opacity: 1; }
+}
+.stamp { animation: stamp-in 180ms var(--ease-out) both; }
+
+/* «hit må du» — et felt pulserer når en låst handling forsøkes */
+@keyframes attn-pulse {
+  0%, 100% { box-shadow: inset 0 1.5px 4px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.5); }
+  50% { box-shadow: inset 0 1.5px 4px rgba(0, 0, 0, 0.18), 0 0 16px -1px #40bcf4; }
+}
+.attn .flip-face { animation: attn-pulse 1.3s ease-in-out 2; }
+
+/* pen linjebryting på titler */
+.balance { text-wrap: balance; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settled, .stamp, .poster-fade, .attn .flip-face { animation: none; }
+}
